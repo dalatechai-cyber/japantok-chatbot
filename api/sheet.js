@@ -1,27 +1,38 @@
-import { fetchProductRows, summarizeProductsForClient } from '../lib/products.js';
-import { applyCors } from '../lib/cors.js';
-
 export default async function handler(req, res) {
-    const cors = applyCors(req, res, { methods: 'GET,OPTIONS' });
+    // CORS: Allow your widget to access this from any website
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (!cors.allowed) {
-        return res.status(403).json({ error: 'Origin not allowed' });
-    }
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+
+    const GOOGLE_SHEET_URL = process.env.GOOGLE_SHEET_URL;
+
+    if (!GOOGLE_SHEET_URL) {
+        return res.status(500).json({ error: 'Configuration Error: Missing Sheet URL' });
     }
 
     try {
-        const rows = await fetchProductRows();
-        const includeFull = req.query?.full === '1';
+        const response = await fetch(GOOGLE_SHEET_URL);
+        
+        if (!response.ok) {
+            throw new Error(`Sheet fetch failed: ${response.status}`);
+        }
 
-        res.status(200).json({
-            count: rows.length,
-            rows: includeFull ? summarizeProductsForClient(rows) : undefined
-        });
+        const csvData = await response.text();
+
+        // Basic validation
+        if (!csvData || csvData.length < 10) {
+            return res.status(400).json({ error: 'Sheet is empty' });
+        }
+
+        // Cache for 1 hour to speed up subsequent loads
+        res.setHeader('Cache-Control', 'public, s-maxage=3600');
+        res.status(200).json({ data: csvData });
+
     } catch (error) {
-        console.error('Sheet Error:', error);
+        console.error("Sheet Error:", error);
         res.status(500).json({ error: error.message });
     }
 }

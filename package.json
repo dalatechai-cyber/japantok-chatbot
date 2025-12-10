@@ -3,16 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build:css": "tailwindcss -i ./src/input.css -o ./public/styles.css --minify",
-    "predeploy": "npm run build:css && node ./scripts/predeploy.mjs"
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/styles.css --minify"
   },
   "dependencies": {
-    "csv-parse": "^6.1.0",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.0.0"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.22",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.19"
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.10"
   }
 }

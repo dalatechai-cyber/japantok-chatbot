@@ -6,179 +6,77 @@
     <title>Japan Tok Mongolia Chatbot</title>
     <link rel="stylesheet" href="/styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231e3a8a'/%3E%3Ctext x='32' y='42' font-size='32' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3EJ%3C/text%3E%3C/svg%3E">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background-color: #020617;
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
-
-        .aurora-layer {
-            position: absolute;
-            inset: -10% -20%;
-            background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.35), transparent 45%),
-                        radial-gradient(circle at 80% 0%, rgba(14, 116, 144, 0.35), transparent 40%),
-                        radial-gradient(circle at 50% 80%, rgba(251, 191, 36, 0.3), transparent 40%);
-            filter: blur(60px);
-            z-index: 0;
-        }
-
-        .grid-overlay {
-            position: absolute;
-            inset: 0;
-            background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-            background-size: 60px 60px;
-            opacity: 0.4;
-            z-index: 0;
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+        
+        /* Mobile-friendly scrolling */
         .chat-scroll::-webkit-scrollbar { width: 5px; }
         .chat-scroll::-webkit-scrollbar-track { background: transparent; }
-        .chat-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-
+        .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        
         .message-animation { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
+        
+        /* Loading Dots Animation */
         .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
         .typing-dot:nth-child(1) { animation-delay: -0.32s; }
         .typing-dot:nth-child(2) { animation-delay: -0.16s; }
         @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
     </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
-    <div class="aurora-layer" aria-hidden="true"></div>
-    <div class="grid-overlay" aria-hidden="true"></div>
+<body class="flex flex-col items-center justify-center h-screen md:h-dvh p-2 md:p-4">
 
-    <main class="relative z-10 w-full max-w-6xl mx-auto px-4 py-8 lg:py-16">
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_420px] items-stretch">
-            <section class="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl space-y-8 shadow-[0_20px_120px_rgba(14,30,64,0.45)]">
-                <div class="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-amber-200">
-                    <span class="w-2 h-2 rounded-full bg-amber-300"></span> Certified Support
-                </div>
-                <div class="space-y-4">
-                    <h1 class="text-3xl sm:text-4xl font-semibold leading-tight text-white">
-                        Japan Tok Mongolia цахим туслах<br>
-                        <span class="text-amber-200">премиум хайлтын туршлага</span>
-                    </h1>
-                    <p class="text-base text-slate-200 max-w-2xl">
-                        Бид Монголын хамгийн найдвартай Prius болон Japan car сэлбэгийн мэдээллийг 5 минут тутам шинэчилж,
-                        хэрэглэгчийн асуулт бүрт баталгаатай өгөгдлөөр хариулдаг.
-                    </p>
-                </div>
-
-                <div class="grid sm:grid-cols-2 gap-4">
-                    <div class="rounded-2xl bg-slate-900/60 border border-white/10 p-4">
-                        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Серверийн төлөв</p>
-                        <div class="flex items-center gap-3 mt-3">
-                            <span id="connection-status" class="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></span>
-                            <span id="status-text" class="text-sm font-semibold">Систем ачаалж байна...</span>
-                        </div>
-                    </div>
-                    <div id="sheet-indicator" class="rounded-2xl bg-slate-900/60 border border-white/10 p-4 text-sm text-slate-300 opacity-70">
-                        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Өгөгдлийн сан</p>
-                        <div class="flex items-center gap-2 mt-3 text-amber-200">
-                            <i class="fas fa-database"></i>
-                            <span>Data Loading...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-900/60 border border-white/10 rounded-2xl p-6 space-y-4">
-                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Яагаад Japan Tok?</p>
-                    <ul class="space-y-3 text-sm text-slate-200">
-                        <li class="flex items-start gap-3">
-                            <span class="text-amber-300 mt-1">▸</span>
-                            <div>
-                                <p class="font-semibold">313+ баталгаатай бүртгэл</p>
-                                <p class="text-slate-400 text-xs">Google Sheet-ээс сервер лүү шууд синк</p>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="text-amber-300 mt-1">▸</span>
-                            <div>
-                                <p class="font-semibold">НӨАТ-тэй & НӨАТ-гүй үнэ</p>
-                                <p class="text-slate-400 text-xs">Автомат форматтай шууд хариулт</p>
-                            </div>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="text-amber-300 mt-1">▸</span>
-                            <div>
-                                <p class="font-semibold">Логжилт & аудит</p>
-                                <p class="text-slate-400 text-xs">Хэрэглэгчийн асуулт бүр log-логддог</p>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="flex flex-wrap gap-4">
-                    <button class="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-slate-900 px-6 py-3 font-semibold shadow-[0_15px_35px_rgba(251,191,36,0.35)]">
-                        Шууд турших
-                        <i class="fas fa-arrow-right transition-transform group-hover:translate-x-1"></i>
-                    </button>
-                    <div class="flex items-center gap-3 text-slate-200 text-sm">
-                        <div class="text-2xl">📞</div>
-                        <div>
-                            <p class="font-semibold text-white">24/7 оператор</p>
-                            <p class="text-xs text-slate-400">99997571 · 88105143</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="relative">
-                <div class="absolute -inset-[2px] bg-gradient-to-br from-blue-500 via-indigo-500 to-amber-400 opacity-60 blur-lg"></div>
-                <div class="relative bg-white text-slate-900 rounded-[28px] border border-white/60 shadow-[0_30px_80px_rgba(15,23,42,0.35)] flex flex-col h-[620px] sm:h-[650px]">
-                    <header class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center text-white font-semibold">
-                                JT
-                            </div>
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.4em] text-slate-400">Live Chat</p>
-                                <h2 class="text-lg font-semibold">Japan Tok Mongolia</h2>
-                            </div>
-                        </div>
-                        <div class="text-xs text-slate-500 text-right">
-                            <p class="font-semibold text-slate-800">Verified Data</p>
-                            <p>Gemini • Secure</p>
-                        </div>
-                    </header>
-
-                    <div id="chat-messages" class="flex-1 p-6 space-y-4 overflow-y-auto bg-slate-50 chat-scroll scroll-smooth rounded-b-[28px]">
-                        <div class="flex justify-start message-animation">
-                            <div class="w-9 h-9 rounded-full bg-slate-900/10 flex items-center justify-center mr-3 mt-1 flex-shrink-0 text-slate-600">
-                                <i class="fas fa-robot text-sm"></i>
-                            </div>
-                            <div class="bg-white/90 text-slate-800 p-4 rounded-3xl rounded-tl-none shadow border border-slate-100 max-w-[85%] text-sm">
-                                Сайн байна уу? <b>Japan Tok Mongolia</b> цахим туслахад тавтай морил.<br>
-                                Танд ямар сэлбэг хэрэгтэй байна вэ?
-                            </div>
-                        </div>
-                    </div>
-
-                    <form id="chat-form" class="p-4 bg-white border-t border-slate-100 flex items-center gap-3 rounded-b-[28px]">
-                        <div class="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 focus-within:border-blue-500 transition">
-                            <input type="text" id="user-input" placeholder="Хайх бараагаа бичнэ үү..." required autocomplete="off" disabled
-                                   class="w-full bg-transparent text-sm text-slate-800 focus:outline-none"/>
-                        </div>
-                        <button type="submit" id="send-button" disabled
-                                class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-3 rounded-2xl shadow-lg transition-all flex items-center justify-center disabled:opacity-50">
-                            <i class="fas fa-paper-plane text-sm"></i>
-                        </button>
-                    </form>
-
-                    <div id="loader" class="hidden h-1 w-full bg-slate-200 overflow-hidden rounded-b-[28px]">
-                        <div class="animate-progress h-full bg-gradient-to-r from-blue-500 to-amber-400 origin-left-right"></div>
-                    </div>
-                </div>
-            </section>
+<div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl overflow-hidden flex flex-col h-full border border-gray-200">
+    <header class="bg-gradient-to-r from-blue-800 to-blue-600 text-white p-4 flex items-center justify-between shadow-md z-10">
+        <div class="flex items-center space-x-3">
+            
+            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-inner border-2 border-blue-100 overflow-hidden">
+                 <img src="/logo.png"
+                     onerror="this.src='https://cdn-icons-png.flaticon.com/512/4712/4712035.png'"
+                     alt="Japan Tok Logo"
+                     class="w-full h-full object-cover">
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-wide">Japan Tok Mongolia</h1>
+                <p class="text-xs text-blue-100 flex items-center gap-1">
+                    <span id="connection-status" class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                    <span id="status-text">Систем ачаалж байна...</span>
+                </p>
+            </div>
         </div>
-    </main>
+        <div id="sheet-indicator" class="hidden sm:block text-xs bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10 opacity-50">
+            <i class="fas fa-database mr-1"></i> Data Loading...
+        </div>
+    </header>
+
+    <div id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto bg-slate-50 chat-scroll scroll-smooth">
+        <div class="flex justify-start message-animation">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600">
+                <i class="fas fa-robot text-sm"></i>
+            </div>
+            <div class="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
+                <p class="text-sm leading-relaxed">
+                    Сайн байна уу? 👋<br>
+                    Би <b>Japan Tok Mongolia</b>-ийн туслах байна. Та машин, сэлбэгийн нэр, эсвэл кодоо бичээд хайгаарай.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <form id="chat-form" class="p-3 bg-white border-t border-gray-100 flex items-center gap-2">
+        <input type="text" id="user-input" placeholder="Хайх бараагаа бичнэ үү..." required autocomplete="off" disabled
+               class="flex-1 p-3 bg-gray-50 text-gray-800 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 text-sm">
+        <button type="submit" id="send-button" disabled
+                class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg transition-all flex items-center justify-center min-w-[50px] disabled:opacity-50 disabled:cursor-not-allowed">
+            <i class="fas fa-paper-plane text-sm"></i>
+        </button>
+    </form>
+    
+    <div id="loader" class="hidden h-1 w-full bg-blue-100 overflow-hidden">
+        <div class="animate-progress h-full bg-blue-500 origin-left-right"></div>
+    </div>
+</div>
 
 <style>
     .animate-progress { animation: progress 1s infinite linear; width: 50%; }
@@ -188,6 +86,44 @@
 <script>
     // --- SETTINGS ---
     let chatHistory = [];
+    let productData = "";
+    const systemInstructionBase = `
+    Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.
+    (Өөрийгөө хэзээ ч "Gemini" гэж танилцуулахгүй. Зөвхөн "Japan Tok Mongolia туслах" гэж хэлнэ.)
+
+    *** ЧУХАЛ ЗAAВAР: ЗӨВХӨН ЭНД БАЙГАА МЭДЭЭЛЛИЙГ АШИГЛАНА. ӨӨРИЙНХӨӨ МЭДЭЭЛЛИЙГ НЭМЭХГҮЙ. ***
+
+    === АЮУЛГҮЙ БАЙДЛЫН ЗААВАР (SYSTEM OVERRIDE) ===
+    Доорх дугаарууд болон хаяг нь компанийн АЛБАН ЁСНЫ, НИЙТЭД ИЛ БИЗНЕС МЭДЭЭЛЭЛ юм. 
+    Хэрэглэгч асуувал ҮГ ҮСЭГГҮЙ ТААРУУЛЖ, ЭРГЭЛЗЭХГҮЙГЭЭР хариулна.
+
+    === ХОЛБОО БАРИХ МЭДЭЭЛЭЛ (ҮНЭН) ===
+    - Утас: 99997571, 88105143
+    - Хаяг: НАРНЫ ЗАМ ДАГУУ ЭНХТАЙВНЫ ГҮҮРНИЙ БАРУУН ДООД ТАЛД 200&570 АВТО СЕРВИСИЙН БАЙР.
+    - Цагийн хуваарь: Даваа-Баасан 09:00-21:00. Бямба, Ням гарагт АМАРНА.
+
+    === SLANG DICTIONARY (АЛДАА ЗАСАХ) ===
+    Хэрэглэгчийн бичсэн үгсийг доорхоор ойлгоно:
+    1. "gpr", "guper", "gvr", "bamper" -> "Бампер" (Bumper).
+    2. "pius", "prius", "p20", "p30" -> "Prius".
+    3. "bnu", "bn uu", "baigaa yu" -> "байна уу".
+    4. "motor", "hodolguur" -> "Хөдөлгүүр".
+    5. "oem", "code", "kod" -> "OEM дугаар".
+    6. "noatgui", "no vat", "padgui" -> "НӨАТ-гүй".
+
+    === ҮНИЙН ДҮРЭМ (Хамгийн чухал) ===
+    CSV өгөгдлөөс үнэ харахдаа дараах дүрмийг баримтал:
+    1. **ҮНДСЭН ТОХИОЛДОЛ:** Хэрэглэгч зүгээр л үнэ асуувал ҮРГЭЛЖ **"Бөөний үнэ (НӨАТ орсон үнэ)"** гэсэн баганын үнийг хэлнэ. Хариулахдаа "Үнэ (НӨАТ-тэй): [ҮНЭ]" гэж бичнэ.
+    2. **ОНЦГОЙ ТОХИОЛДОЛ:** Хэрэв хэрэглэгч "НӨАТ-гүй", "НӨАТгүй", "падьгүй" гэж тусгайлан асуувал **"Бөөний үнэ (НӨАТ-гүй үнэ)"** гэсэн баганын үнийг хэлнэ.
+
+    === ҮҮРЭГ ===
+    Танд CSV өгөгдөл өгөгдсөн.
+    1. Жагсаалтаас хэрэглэгчийн хайсан барааг ол.
+    2. Дээрх ҮНИЙН ДҮРЭМ-ийн дагуу тохирох үнийг сонгож хэл.
+    3. ЧУХАЛ: Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай" гэж нэмж хэл.
+    4. Хэрэв үнэ нь "0" эсвэл хоосон байвал "Үнэ тодорхойгүй, утсаар лавлана уу" гэж хэл.
+    5. Бараа олдохгүй бол "Уучлаарай, [Хайсан үг] манай бүртгэлд алга байна." гэж хэл.
+    `;
 
     // --- DOM Elements ---
     const chatForm = document.getElementById('chat-form');
@@ -197,21 +133,6 @@
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('connection-status');
     const sheetIndicator = document.getElementById('sheet-indicator');
-
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    async function retry(operation, { retries = 2, delay = 400 } = {}) {
-        let attempt = 0;
-        while (true) {
-            try {
-                return await operation(attempt);
-            } catch (error) {
-                if (attempt >= retries) throw error;
-                await sleep(delay * (attempt + 1));
-                attempt += 1;
-            }
-        }
-    }
 
     function addMessage(text, sender) {
         const div = document.createElement('div');
@@ -256,25 +177,29 @@
     // --- 1. ROBUST DATA FETCHING ---
     async function fetchSheetData() {
         try {
-            console.log("📥 Fetching product data stats from backend...");
-            const json = await retry(async () => {
-                const response = await fetch('/api/sheet');
-                if (!response.ok) {
-                    throw new Error(`Backend returned ${response.status}`);
-                }
-                return response.json();
-            });
-            const rowCount = Number(json.count || 0);
+            console.log("📥 Fetching product data from backend...");
+            const response = await fetch('/api/sheet');
+            
+            if (!response.ok) {
+                throw new Error(`Backend returned ${response.status}`);
+            }
 
-            if (!Number.isFinite(rowCount) || rowCount <= 0) {
+            const json = await response.json();
+            productData = json.data;
+
+            if (!productData || productData.length < 50) {
                 throw new Error("Empty or invalid data from backend");
             }
 
+            // Success
+            console.log("✅ Data Loaded from /api/sheet");
+            const rowCount = productData.split('\n').length;
+            
             statusText.textContent = "Систем бэлэн";
             statusDot.className = "w-2 h-2 bg-green-500 rounded-full";
             sheetIndicator.innerHTML = `<i class="fas fa-check-circle text-green-400 mr-1"></i> ${rowCount} Бараа`;
             sheetIndicator.classList.remove('opacity-50');
-
+            
             userInput.disabled = false;
             sendButton.disabled = false;
 
@@ -287,26 +212,32 @@
     }
 
     // --- 2. AI CHAT FUNCTION ---
-    async function callChatApi(prompt) {
-        return retry(async () => {
+    async function callGeminiApi(prompt) {
+        const fullSystemInstruction = systemInstructionBase + "\n\n=== CSV DATA ===\n" + productData;
+
+        const payload = {
+            contents: [...chatHistory, { role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: fullSystemInstruction }] }
+        };
+        
+        try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: prompt,
-                    history: chatHistory.map((entry) => ({
-                        role: entry.role === 'model' ? 'assistant' : entry.role,
-                        content: entry.parts?.map((part) => part.text).join('\n')
-                    }))
-                })
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'API Error');
-            if (!data.reply) throw new Error('Empty response');
 
-            return data;
-        });
+            if (!response.ok) throw new Error(data.error || "API Error");
+            if (!data.candidates) throw new Error("Empty response");
+
+            return data.candidates[0].content.parts[0].text;
+
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
     }
 
     chatForm.addEventListener('submit', async (e) => {
@@ -321,10 +252,9 @@
         addTypingIndicator();
 
         try {
-            const { reply, matches } = await callChatApi(text);
+            const reply = await callGeminiApi(text);
             removeTypingIndicator();
             addMessage(reply, 'bot');
-            renderMatches(matches);
             
             chatHistory.push({ role: 'user', parts: [{ text }] }, { role: 'model', parts: [{ text: reply }] });
             if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
@@ -340,55 +270,13 @@
     });
 
     // --- INITIALIZE ON PAGE LOAD ---
-    const init = () => fetchSheetData();
-
+    document.addEventListener('DOMContentLoaded', fetchSheetData);
+    
+    // Also try to fetch on script load in case DOMContentLoaded already fired
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init, { once: true });
+        document.addEventListener('DOMContentLoaded', fetchSheetData);
     } else {
-        init();
-    }
-
-    function escapeHtml(value = '') {
-        return value.replace(/[&<>"']/g, (char) => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        })[char] || char);
-    }
-
-    function renderMatches(matches = []) {
-        const existing = document.querySelector('#match-panel');
-        if (existing) existing.remove();
-
-        if (!matches?.length) return;
-
-        const panel = document.createElement('div');
-        panel.id = 'match-panel';
-        panel.className = 'fixed right-4 bottom-4 bg-slate-900/90 backdrop-blur-lg shadow-[0_25px_80px_rgba(2,6,23,0.6)] border border-white/10 rounded-2xl p-4 max-w-sm w-full text-sm space-y-3 text-slate-100';
-        panel.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span class="font-semibold text-white">⚙ Хэрэглэсэн өгөгдөл</span>
-                <button class="text-xs text-slate-400 hover:text-white" id="close-match-panel">✕</button>
-            </div>
-            <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                                ${matches
-                  .map((match) => `
-                    <div class="border border-white/10 rounded-xl p-3 bg-white/5">
-                                                ${match.title ? `<div class="font-semibold text-white">${escapeHtml(match.title)}</div>` : ''}
-                                                ${match.tokCode ? `<div class="text-xs text-slate-300">TOK: ${escapeHtml(match.tokCode)}</div>` : ''}
-                                                ${match.oem ? `<div class="text-xs text-slate-400">OEM: ${escapeHtml(match.oem)}</div>` : ''}
-                                                ${match.wholesaleWithVat ? `<div class="text-xs text-amber-200">Үнэ (НӨАТ-тэй): ${escapeHtml(match.wholesaleWithVat)}</div>` : ''}
-                                                ${match.wholesaleNoVat ? `<div class="text-xs text-amber-200">Үнэ (НӨАТ-гүй): ${escapeHtml(match.wholesaleNoVat)}</div>` : ''}
-                    </div>
-                `)
-                  .join('')}
-            </div>
-        `;
-
-        document.body.appendChild(panel);
-        panel.querySelector('#close-match-panel').addEventListener('click', () => panel.remove());
+        fetchSheetData();
     }
 </script>
 </body>
