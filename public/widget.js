@@ -3,17 +3,22 @@
 // <script async src="https://japantok-chatbot.vercel.app/widget.js"></script>
 
 (function() {
+    const currentScript = document.currentScript;
+    const scriptOrigin = currentScript ? new URL(currentScript.src).origin : window.location.origin;
+
     // Configuration
     const WIDGET_CONFIG = {
-        apiUrl: 'https://japantok-chatbot.vercel.app',
-        position: 'bottom-right', // bottom-right, bottom-left, top-right, top-left
-        theme: 'light', // light, dark
+        apiUrl: scriptOrigin, // Calls the same origin that serves widget.js
         title: 'Japan Tok Mongolia',
         subtitle: 'Tuslah',
+        logoUrl: '/logo.png',
         icon: '💬'
     };
 
-    // Create widget styles
+    // --- CRITICAL FIX: Variable to store the CSV data ---
+    let productData = ""; 
+
+    // Create widget styles (Original Full CSS)
     const styles = `
         .japantok-widget-button {
             position: fixed;
@@ -33,6 +38,7 @@
             z-index: 999;
             transition: all 0.3s ease;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: white;
         }
 
         .japantok-widget-button:hover {
@@ -132,12 +138,13 @@
             background: white;
             color: #333;
             border: 1px solid #e5e7eb;
+            border-top-left-radius: 2px;
         }
 
         .japantok-widget-message.user .japantok-widget-message-content {
             background: #1e40af;
             color: white;
-            border-radius: 12px 0 12px 12px;
+            border-radius: 12px 12px 2px 12px;
         }
 
         .japantok-widget-typing {
@@ -225,21 +232,6 @@
             }
         }
 
-        .japantok-widget-status {
-            font-size: 12px;
-            color: #666;
-            padding: 0 4px;
-            margin-top: 2px;
-        }
-
-        .japantok-widget-status.loading::after {
-            content: ' ⏳';
-        }
-
-        .japantok-widget-status.error {
-            color: #dc2626;
-        }
-
         .japantok-widget-overlay {
             display: none;
             position: fixed;
@@ -280,7 +272,7 @@
                     type="text" 
                     class="japantok-widget-input" 
                     id="japantok-input" 
-                    placeholder="Бичээд хайгаарай..."
+                    placeholder="Ачаалж байна..."
                     disabled
                 >
                 <button class="japantok-widget-send-btn" id="japantok-send" disabled>
@@ -292,10 +284,8 @@
 
     // Initialize widget
     function init() {
-        // Create container for widget
-        const container = document.createElement('div');
-        container.innerHTML = html;
-        document.body.appendChild(container.firstElementChild);
+        // Inject widget markup once
+        document.body.insertAdjacentHTML('beforeend', html);
 
         // Get elements
         const toggleBtn = document.getElementById('japantok-toggle');
@@ -320,17 +310,24 @@
         toggleBtn.addEventListener('click', toggleChat);
         overlay.addEventListener('click', toggleChat);
 
-        // Load sheet data on init
+        // --- CRITICAL FIX: Load data AND store it ---
         async function loadSheetData() {
             try {
                 const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/sheet`);
                 if (!response.ok) throw new Error('Failed to load data');
-                const data = await response.json();
+                const json = await response.json();
+                
+                // STORE DATA HERE
+                productData = json.data;
+                console.log("✅ Widget: Loaded product data successfully");
+
                 input.disabled = false;
+                input.placeholder = "Бичээд хайгаарай...";
                 sendBtn.disabled = false;
             } catch (error) {
                 console.error('Error loading sheet data:', error);
                 addMessage('Өгөгдөл ачаалах алдаа гарлаа. Дахин оролдоно уу.', 'bot');
+                input.placeholder = "Алдаа гарлаа";
             }
         }
 
@@ -352,7 +349,7 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Add typing indicator
+        // Add typing indicator (Original animation)
         function addTyping() {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'japantok-widget-message bot';
@@ -370,7 +367,7 @@
             if (typing) typing.remove();
         }
 
-        // Send message
+        // --- CRITICAL FIX: Send productData to AI ---
         async function sendMessage() {
             const text = input.value.trim();
             if (!text || isLoading) return;
@@ -384,15 +381,27 @@
             addTyping();
 
             try {
+                // Construct the system instruction WITH the data
+                const systemPrompt = `
+                Та бол "Japan Tok Mongolia" компанийн альбан ёсны хиймэл оюун ухаант туслах. 
+                
+                === БАРААНЫ МЭДЭЭЛЭЛ (CSV) ===
+                ${productData}
+                
+                === ЗААВАР ===
+                1. Та зөвхөн дээрх CSV өгөгдлөөс хариулна.
+                2. Хэрэглэгчийн бичсэн үгсийг ойлгож, тэдний хайсан бараа олж үнийг хэл. 
+                3. Хэрэв "НӨАТ-гүй" гэж асуугаагүй бол "Бөөний үнэ (НӨАТ орсон үнэ)" баганыг ашигла.
+                4. Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай: 99997571, 88105143" гэж нэмж хэл.
+                `;
+
                 const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [...chatHistory, { role: 'user', parts: [{ text }] }],
                         systemInstruction: {
-                            parts: [{
-                                text: `Та бол "Japan Tok Mongolia" компанийн альбан ёсны хиймэл оюун ухаант туслах. Та машины сэлбэгийн үнээ CSV өгөгдлөөс үндэслэн хариулна. Хэрэглэгчийн бичсэн үгсийг ойлгож, тэдний хайсан бараа олж үнийг хэл. Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай: 99997571, 88105143" гэж нэмж хэл.`
-                            }]
+                            parts: [{ text: systemPrompt }]
                         }
                     })
                 });
