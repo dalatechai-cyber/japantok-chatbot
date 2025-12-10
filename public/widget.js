@@ -15,9 +15,6 @@
         icon: '💬'
     };
 
-    // --- CRITICAL FIX: Variable to store the CSV data ---
-    let productData = ""; 
-
     // Create widget styles (Original Full CSS)
     const styles = `
         .japantok-widget-button {
@@ -263,7 +260,7 @@
             <div class="japantok-widget-messages" id="japantok-messages">
                 <div class="japantok-widget-message bot">
                     <div class="japantok-widget-message-content">
-                        Сайн байна уу? 👋<br>Та машин, сэлбэгийн нэр, эсвэл кодоо бичээд хайгаарай.
+                        Сайн байна уу? <strong>Japan Tok Mongolia</strong> цахим туслахад тавтай морил.<br>Танд ямар сэлбэг хэрэгтэй байна вэ?
                     </div>
                 </div>
             </div>
@@ -297,6 +294,21 @@
         let chatHistory = [];
         let isLoading = false;
 
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        async function retry(operation, { retries = 2, delay = 400 } = {}) {
+            let attempt = 0;
+            while (true) {
+                try {
+                    return await operation(attempt);
+                } catch (error) {
+                    if (attempt >= retries) throw error;
+                    await sleep(delay * (attempt + 1));
+                    attempt += 1;
+                }
+            }
+        }
+
         // Toggle chat
         function toggleChat() {
             chatContainer.classList.toggle('open');
@@ -310,16 +322,19 @@
         toggleBtn.addEventListener('click', toggleChat);
         overlay.addEventListener('click', toggleChat);
 
-        // --- CRITICAL FIX: Load data AND store it ---
         async function loadSheetData() {
             try {
-                const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/sheet`);
-                if (!response.ok) throw new Error('Failed to load data');
-                const json = await response.json();
-                
-                // STORE DATA HERE
-                productData = json.data;
-                console.log("✅ Widget: Loaded product data successfully");
+                const json = await retry(async () => {
+                    const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/sheet`);
+                    if (!response.ok) throw new Error(`Failed to load data (${response.status})`);
+                    return response.json();
+                });
+                const rowCount = Number(json.count || 0);
+                if (!Number.isFinite(rowCount) || rowCount <= 0) {
+                    throw new Error('Inventory response empty');
+                }
+
+                console.log(`✅ Widget: API online, ${rowCount} products ready`);
 
                 input.disabled = false;
                 input.placeholder = "Бичээд хайгаарай...";
@@ -367,7 +382,6 @@
             if (typing) typing.remove();
         }
 
-        // --- CRITICAL FIX: Send productData to AI ---
         async function sendMessage() {
             const text = input.value.trim();
             if (!text || isLoading) return;
@@ -381,41 +395,32 @@
             addTyping();
 
             try {
-                // Construct the system instruction WITH the data
-                const systemPrompt = `
-                Та бол "Japan Tok Mongolia" компанийн альбан ёсны хиймэл оюун ухаант туслах. 
-                
-                === БАРААНЫ МЭДЭЭЛЭЛ (CSV) ===
-                ${productData}
-                
-                === ЗААВАР ===
-                1. Та зөвхөн дээрх CSV өгөгдлөөс хариулна.
-                2. Хэрэглэгчийн бичсэн үгсийг ойлгож, тэдний хайсан бараа олж үнийг хэл. 
-                3. Хэрэв "НӨАТ-гүй" гэж асуугаагүй бол "Бөөний үнэ (НӨАТ орсон үнэ)" баганыг ашигла.
-                4. Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай: 99997571, 88105143" гэж нэмж хэл.
-                `;
+                const data = await retry(async () => {
+                    const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: text,
+                            history: chatHistory.map((entry) => ({
+                                role: entry.role === 'model' ? 'assistant' : entry.role,
+                                content: entry.parts?.map((part) => part.text).join('\n')
+                            }))
+                        })
+                    });
 
-                const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [...chatHistory, { role: 'user', parts: [{ text }] }],
-                        systemInstruction: {
-                            parts: [{ text: systemPrompt }]
-                        }
-                    })
+                    const json = await response.json();
+                    if (!response.ok) throw new Error(json.error || 'API error');
+                    if (!json.reply) throw new Error('Empty response');
+                    return json;
                 });
-
-                if (!response.ok) throw new Error('API error');
-                const data = await response.json();
                 removeTyping();
 
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    const reply = data.candidates[0].content.parts[0].text;
-                    addMessage(reply, 'bot');
+                if (data.reply) {
+                    addMessage(data.reply, 'bot');
+                    renderMatches(data.matches);
                     chatHistory.push(
                         { role: 'user', parts: [{ text }] },
-                        { role: 'model', parts: [{ text: reply }] }
+                        { role: 'model', parts: [{ text: data.reply }] }
                     );
                     if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
                 } else {
@@ -431,6 +436,34 @@
                 sendBtn.disabled = false;
                 isLoading = false;
                 input.focus();
+            }
+        }
+
+        function escapeHtml(value = '') {
+            return value.replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[char] || char);
+        }
+
+        function renderMatches(matches = []) {
+            if (!matches?.length) return;
+            const summary = matches
+                .map((match) => {
+                    const parts = [];
+                    if (match.title) parts.push(`• ${escapeHtml(match.title)}`);
+                    if (match.tokCode) parts.push(`TOK: ${escapeHtml(match.tokCode)}`);
+                    if (match.wholesaleWithVat) parts.push(`Үнэ: ${escapeHtml(match.wholesaleWithVat)}`);
+                    return parts.join(' | ');
+                })
+                .filter(Boolean)
+                .join('\n');
+
+            if (summary) {
+                addMessage(`\n<i>Хариулт баталгаажсан өгөгдөл:</i>\n${summary}`, 'bot');
             }
         }
 
