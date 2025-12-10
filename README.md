@@ -5,7 +5,7 @@ AI-powered customer support chatbot for auto parts, powered by Google Gemini.
 ## Features
 
 - 🤖 Google Gemini AI integration
-- 📊 311 auto parts from Google Sheets
+- 📊 226 auto parts from Google Sheets
 - 🇲🇳 Full Mongolian language support
 - 💰 Smart pricing (with/without VAT)
 - 📱 Mobile responsive
@@ -37,7 +37,12 @@ git push -u origin main
 
 Add to any website:
 ```html
-<script async src="https://your-url.vercel.app/widget.js"></script>
+<script
+  async
+  src="https://your-url.vercel.app/widget.js"
+  data-japantok-widget
+  data-api-origin="https://your-url.vercel.app"
+></script>
 ```
 
 ## Local Development

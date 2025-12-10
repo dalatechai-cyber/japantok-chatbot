@@ -37,7 +37,12 @@ Your chatbot is live at: `https://japantok-chatbot.vercel.app`
 
 Add this to any website:
 ```html
-<script async src="https://japantok-chatbot.vercel.app/widget.js"></script>
+<script
+  async
+  src="https://japantok-chatbot.vercel.app/widget.js"
+  data-japantok-widget
+  data-api-origin="https://japantok-chatbot.vercel.app"
+></script>
 ```
 
 The chatbot button will appear in the bottom-right corner.

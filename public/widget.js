@@ -3,8 +3,11 @@
 // <script async src="https://japantok-chatbot.vercel.app/widget.js"></script>
 
 (function() {
-    const currentScript = document.currentScript;
-    const scriptOrigin = currentScript ? new URL(currentScript.src).origin : window.location.origin;
+    const scriptFromAttr = document.querySelector('script[data-japantok-widget]');
+    const scriptElement = document.currentScript || scriptFromAttr || document.scripts[document.scripts.length - 1];
+    const explicitOrigin = scriptElement?.getAttribute?.('data-api-origin');
+    const scriptSrc = scriptElement?.src ? new URL(scriptElement.src, window.location.href) : null;
+    const scriptOrigin = explicitOrigin || scriptSrc?.origin || window.location.origin;
 
     // Configuration
     const WIDGET_CONFIG = {
@@ -14,9 +17,6 @@
         logoUrl: '/logo.png',
         icon: '💬'
     };
-
-    // --- CRITICAL FIX: Variable to store the CSV data ---
-    let productData = ""; 
 
     // Create widget styles (Original Full CSS)
     const styles = `
@@ -263,7 +263,7 @@
             <div class="japantok-widget-messages" id="japantok-messages">
                 <div class="japantok-widget-message bot">
                     <div class="japantok-widget-message-content">
-                        Сайн байна уу? 👋<br>Та машин, сэлбэгийн нэр, эсвэл кодоо бичээд хайгаарай.
+                        Сайн байна уу? Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ?
                     </div>
                 </div>
             </div>
@@ -272,10 +272,9 @@
                     type="text" 
                     class="japantok-widget-input" 
                     id="japantok-input" 
-                    placeholder="Ачаалж байна..."
-                    disabled
+                    placeholder="Код, OEM эсвэл нэр..."
                 >
-                <button class="japantok-widget-send-btn" id="japantok-send" disabled>
+                <button class="japantok-widget-send-btn" id="japantok-send">
                     ➤
                 </button>
             </div>
@@ -310,26 +309,6 @@
         toggleBtn.addEventListener('click', toggleChat);
         overlay.addEventListener('click', toggleChat);
 
-        // --- CRITICAL FIX: Load data AND store it ---
-        async function loadSheetData() {
-            try {
-                const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/sheet`);
-                if (!response.ok) throw new Error('Failed to load data');
-                const json = await response.json();
-                
-                // STORE DATA HERE
-                productData = json.data;
-                console.log("✅ Widget: Loaded product data successfully");
-
-                input.disabled = false;
-                input.placeholder = "Бичээд хайгаарай...";
-                sendBtn.disabled = false;
-            } catch (error) {
-                console.error('Error loading sheet data:', error);
-                addMessage('Өгөгдөл ачаалах алдаа гарлаа. Дахин оролдоно уу.', 'bot');
-                input.placeholder = "Алдаа гарлаа";
-            }
-        }
 
         // Add message to chat
         function addMessage(text, sender) {
@@ -367,7 +346,22 @@
             if (typing) typing.remove();
         }
 
-        // --- CRITICAL FIX: Send productData to AI ---
+        function formatMatches(matches = []) {
+            const list = matches
+                .slice(0, 3)
+                .map((match, index) => {
+                    const label = match.name || match.model || 'Нэр тодорхойгүй';
+                    const code = match.tokCode || match.oemCode || 'код байхгүй';
+                    const price = match.priceWithoutVat || match.priceWithVat || 'Үнэ тодорхойгүй';
+                    return `${index + 1}. **${label}**\n   Код: ${code}\n   Үнэ: ${price}`;
+                })
+                .join('\n');
+
+            if (!list) return '';
+            return `📦 Илэрсэн бараа:\n${list}`;
+        }
+
+        // Send the message to the secure server API
         async function sendMessage() {
             const text = input.value.trim();
             if (!text || isLoading) return;
@@ -381,52 +375,42 @@
             addTyping();
 
             try {
-                // Construct the system instruction WITH the data
-                const systemPrompt = `
-                Та бол "Japan Tok Mongolia" компанийн альбан ёсны хиймэл оюун ухаант туслах. 
-                
-                === БАРААНЫ МЭДЭЭЛЭЛ (CSV) ===
-                ${productData}
-                
-                === ЗААВАР ===
-                1. Та зөвхөн дээрх CSV өгөгдлөөс хариулна.
-                2. Хэрэглэгчийн бичсэн үгсийг ойлгож, тэдний хайсан бараа олж үнийг хэл. 
-                3. Хэрэв "НӨАТ-гүй" гэж асуугаагүй бол "Бөөний үнэ (НӨАТ орсон үнэ)" баганыг ашигла.
-                4. Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай: 99997571, 88105143" гэж нэмж хэл.
-                `;
-
                 const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [...chatHistory, { role: 'user', parts: [{ text }] }],
-                        systemInstruction: {
-                            parts: [{ text: systemPrompt }]
-                        }
+                        message: text,
+                        history: chatHistory
                     })
                 });
 
-                if (!response.ok) throw new Error('API error');
                 const data = await response.json();
-                removeTyping();
+                if (!response.ok) {
+                    throw new Error(data.error || 'AI сервер алдаа өглөө');
+                }
 
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    const reply = data.candidates[0].content.parts[0].text;
-                    addMessage(reply, 'bot');
-                    chatHistory.push(
-                        { role: 'user', parts: [{ text }] },
-                        { role: 'model', parts: [{ text: reply }] }
-                    );
-                    if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
-                } else {
-                    removeTyping();
-                    addMessage('Уучлаарай, хариулт авах алдаа гарлаа.', 'bot');
+                const reply = data.reply || 'Уучлаарай, одоогоор хариу өгөх боломжгүй байна.';
+                addMessage(reply, 'bot');
+
+                if (Array.isArray(data.matches) && data.matches.length) {
+                    const matchesText = formatMatches(data.matches);
+                    if (matchesText) {
+                        addMessage(matchesText, 'bot');
+                    }
+                }
+
+                chatHistory.push(
+                    { role: 'user', content: text },
+                    { role: 'assistant', content: reply }
+                );
+                if (chatHistory.length > 10) {
+                    chatHistory = chatHistory.slice(-10);
                 }
             } catch (error) {
-                removeTyping();
                 console.error('Error:', error);
-                addMessage('Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.', 'bot');
+                addMessage(error.message || 'Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.', 'bot');
             } finally {
+                removeTyping();
                 input.disabled = false;
                 sendBtn.disabled = false;
                 isLoading = false;
@@ -442,9 +426,6 @@
                 sendMessage();
             }
         });
-
-        // Load data on init
-        loadSheetData();
     }
 
     // Initialize when DOM is ready

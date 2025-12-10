@@ -1,10 +1,10 @@
+import { applyCors } from '../lib/cors.js';
+
 export default async function handler(req, res) {
-    // CORS: Allow your widget to access this from any website
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    const cors = applyCors(req, res, { methods: 'GET,OPTIONS' });
 
     if (req.method === 'OPTIONS') return res.status(200).end();
+    if (!cors.allowed) return res.status(403).json({ error: 'Origin not allowed' });
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
     const GOOGLE_SHEET_URL = process.env.GOOGLE_SHEET_URL;
