@@ -12,7 +12,7 @@
     }
   ],
   "env": {
-    "GEMINI_API_KEY": "@gemini_api_key",
-    "GOOGLE_SHEET_URL": "@google_sheet_url"
+    "GEMINI_API_KEY": "AIzaSyCt28UtWf3I9zamZjbplHQy5qRyFT5vN5c",
+    "GOOGLE_SHEET_URL": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSvL5pvuXByZ-E3fzauAB2ah25rGMBOYPG4xae9z0TgwgS8NRv3b_hRxranQJwV5w/pub?output=csv"
   }
 }
