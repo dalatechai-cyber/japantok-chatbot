@@ -212,13 +212,13 @@
         }
     }
 
-    // --- 2. AI CHAT FUNCTION ---
+// --- 2. AI CHAT FUNCTION (FIXED) ---
     async function callGeminiApi(prompt) {
-        const fullSystemInstruction = systemInstructionBase + "\n\n=== CSV DATA ===\n" + productData;
-
+        
+        // 1. Send simple JSON (Backend handles the system instructions & data)
         const payload = {
-            contents: [...chatHistory, { role: 'user', parts: [{ text: prompt }] }],
-            systemInstruction: { parts: [{ text: fullSystemInstruction }] }
+            message: prompt,
+            history: chatHistory
         };
         
         try {
@@ -231,9 +231,11 @@
             const data = await response.json();
 
             if (!response.ok) throw new Error(data.error || "API Error");
-            if (!data.candidates) throw new Error("Empty response");
+            
+            // FIX: The backend returns { reply: "..." }, NOT { candidates: [...] }
+            if (!data.reply) throw new Error("Empty response from server");
 
-            return data.candidates[0].content.parts[0].text;
+            return data.reply;
 
         } catch (error) {
             console.error(error);
