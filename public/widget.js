@@ -3,22 +3,19 @@
 // <script async src="https://japantok-chatbot.vercel.app/widget.js"></script>
 
 (function() {
-    const scriptFromAttr = document.querySelector('script[data-japantok-widget]');
-    const scriptElement = document.currentScript || scriptFromAttr || document.scripts[document.scripts.length - 1];
-    const explicitOrigin = scriptElement?.getAttribute?.('data-api-origin');
-    const scriptSrc = scriptElement?.src ? new URL(scriptElement.src, window.location.href) : null;
-    const scriptOrigin = explicitOrigin || scriptSrc?.origin || window.location.origin;
+    const currentScript = document.currentScript;
+    const scriptOrigin = currentScript ? new URL(currentScript.src).origin : window.location.origin;
 
     // Configuration
     const WIDGET_CONFIG = {
-        apiUrl: scriptOrigin, // Calls the same origin that serves widget.js
+        apiUrl: scriptOrigin,
         title: 'Japan Tok Mongolia',
-        subtitle: 'Tuslah',
-        logoUrl: '/logo.png',
+        subtitle: 'Цахим туслах', // Changed "Tuslah" to Cyrillic for consistency
+        logoUrl: './logo.png', // Changed /logo.png to ./logo.png to fix 404
         icon: '💬'
     };
 
-    // Create widget styles (Original Full CSS)
+    // Create widget styles
     const styles = `
         .japantok-widget-button {
             position: fixed;
@@ -87,18 +84,32 @@
             color: white;
             padding: 20px;
             border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .japantok-widget-header h3 {
+        .japantok-header-info h3 {
             margin: 0;
             font-size: 16px;
             font-weight: 600;
         }
 
-        .japantok-widget-header p {
+        .japantok-header-info p {
             margin: 4px 0 0 0;
             font-size: 12px;
             opacity: 0.9;
+        }
+
+        /* New Badge Style */
+        .japantok-header-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.3);
+            white-space: nowrap;
         }
 
         .japantok-widget-messages {
@@ -126,11 +137,11 @@
         }
 
         .japantok-widget-message-content {
-            max-width: 70%;
+            max-width: 85%; /* Widened slightly for better list display */
             padding: 10px 14px;
             border-radius: 12px;
             font-size: 14px;
-            line-height: 1.4;
+            line-height: 1.5;
             word-wrap: break-word;
         }
 
@@ -249,6 +260,7 @@
     `;
 
     // Create widget HTML
+    // Updated Greeting and Header Structure
     const html = `
         <style>${styles}</style>
         <div class="japantok-widget-overlay" id="japantok-overlay"></div>
@@ -257,13 +269,18 @@
         </button>
         <div class="japantok-widget-container" id="japantok-container">
             <div class="japantok-widget-header">
-                <h3>${WIDGET_CONFIG.title}</h3>
-                <p>${WIDGET_CONFIG.subtitle}</p>
+                <div class="japantok-header-info">
+                    <h3>${WIDGET_CONFIG.title}</h3>
+                    <p>${WIDGET_CONFIG.subtitle}</p>
+                </div>
+                <div class="japantok-header-badge">
+                    ✅ 226 Бараа
+                </div>
             </div>
             <div class="japantok-widget-messages" id="japantok-messages">
                 <div class="japantok-widget-message bot">
                     <div class="japantok-widget-message-content">
-                        Сайн байна уу? Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ?
+                        Сайн байна уу? Japan Tok Mongolia цахим туслахад тавтай морил.<br><br>Танд ямар сэлбэг хэрэгтэй байна вэ?
                     </div>
                 </div>
             </div>
@@ -318,6 +335,7 @@
             content.className = 'japantok-widget-message-content';
             
             if (sender === 'bot') {
+                // Allow HTML for bot messages to support bold/breaks
                 content.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
             } else {
                 content.textContent = text;
@@ -328,7 +346,7 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Add typing indicator (Original animation)
+        // Add typing indicator
         function addTyping() {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'japantok-widget-message bot';
@@ -352,8 +370,12 @@
                 .map((match, index) => {
                     const label = match.name || match.model || 'Нэр тодорхойгүй';
                     const code = match.tokCode || match.oemCode || 'код байхгүй';
-                    const price = match.priceWithoutVat || match.priceWithVat || 'Үнэ тодорхойгүй';
-                    return `${index + 1}. **${label}**\n   Код: ${code}\n   Үнэ: ${price}`;
+                    // Basic fallback formatting if currency formatter isn't available in widget scope
+                    const price = match.priceWithVat 
+                        ? parseInt(match.priceWithVat).toLocaleString() + '₮'
+                        : 'Үнэ тодорхойгүй';
+                        
+                    return `${index + 1}. ${label} (${code}) - <b>${price}</b>`;
                 })
                 .join('\n');
 
@@ -375,6 +397,7 @@
             addTyping();
 
             try {
+                // Using relative path to avoid CORS/404 issues on same domain
                 const response = await fetch(`${WIDGET_CONFIG.apiUrl}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -392,6 +415,7 @@
                 const reply = data.reply || 'Уучлаарай, одоогоор хариу өгөх боломжгүй байна.';
                 addMessage(reply, 'bot');
 
+                // If matches are returned separately, show them
                 if (Array.isArray(data.matches) && data.matches.length) {
                     const matchesText = formatMatches(data.matches);
                     if (matchesText) {
