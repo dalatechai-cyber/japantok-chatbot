@@ -25,12 +25,48 @@ const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам
 
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
-    { pattern: /(pius|prius|p20|p30)/gi, replace: 'prius' },
+    { pattern: /(pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
+    { pattern: /(snu|sn u|sainuu)/gi, replace: 'сайн уу' },
     { pattern: /(bnu|bn uu|baigaa yu)/gi, replace: 'байна уу' },
     { pattern: /(motor|hodolguur)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui)/gi, replace: 'нөат-гүй' }
 ];
+
+const STOPWORD_PHRASES = [
+    'байна уу',
+    'сайн байна уу',
+    'сайн уу',
+    'sain bnuu',
+    'sain bainuu',
+    'sain baina uu'
+];
+const STOPWORDS = new Set([
+    'байна',
+    'уу',
+    'сайн',
+    'сайн байна',
+    'сайнуу',
+    'та',
+    'манай',
+    'туслах',
+    'бол',
+    'юу',
+    'уу?',
+    'юм',
+    'лавлах',
+    'дээр',
+    'sain',
+    'sainuu',
+    'sainbnuu',
+    'sainbainuu',
+    'bnuu',
+    'bnu',
+    'bn',
+    'bna',
+    'baina',
+    'bainuu'
+]);
 
 export default async function handler(req, res) {
     const cors = applyCors(req, res, { methods: 'POST,OPTIONS' });
@@ -50,7 +86,8 @@ export default async function handler(req, res) {
 
     const { message, history } = normalizeRequestBody(req.body);
     const normalizedQuery = normalizeUserMessage(message);
-    const searchQuery = normalizedQuery || message;
+    const cleanedQuery = normalizedQuery?.trim();
+    const searchQuery = cleanedQuery || message;
 
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
@@ -58,6 +95,18 @@ export default async function handler(req, res) {
 
     const requestId = randomUUID?.() ?? String(Date.now());
     const startedAt = Date.now();
+
+    if (!cleanedQuery) {
+        const gentlePrompt = ensureContactLine('Сайн сайн байна уу! Би Japan Tok Mongolia-ийн AI туслах байна. Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа илүү тодорхой бичээрэй.');
+        await logInteraction({
+            requestId,
+            message,
+            response: gentlePrompt,
+            matchCount: 0,
+            latencyMs: Date.now() - startedAt
+        });
+        return res.status(200).json({ reply: gentlePrompt, matches: [] });
+    }
 
     try {
         const allProducts = await fetchProductRows();
@@ -239,7 +288,23 @@ function buildNoMatchResponse(query) {
 
 function normalizeUserMessage(text = '') {
     if (!text) return '';
-    return SLANG_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replace), text.toLowerCase());
+
+    let normalized = text.toLowerCase();
+    normalized = SLANG_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replace), normalized);
+
+    STOPWORD_PHRASES.forEach((phrase) => {
+        const regex = new RegExp(phrase, 'g');
+        normalized = normalized.replace(regex, ' ');
+    });
+
+    normalized = normalized.replace(/[?.,!]/g, ' ');
+
+    const filtered = normalized
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter((token) => !STOPWORDS.has(token));
+
+    return filtered.join(' ');
 }
 
 function ensureContactLine(text = '') {
