@@ -4,224 +4,439 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Japan Tok Mongolia Chatbot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23083662'/%3E%3Cpath d='M18 18h28v28H18z' fill='%23ffffff'/%3E%3Cpath d='M18 18h28v14H18z' fill='%2302d4ff'/%3E%3Cpath d='M18 32h28v14H18z' fill='%231b59ff'/%3E%3C/svg%3E">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
-        
-        /* Mobile-friendly scrolling */
-        .chat-scroll::-webkit-scrollbar { width: 5px; }
-        .chat-scroll::-webkit-scrollbar-track { background: transparent; }
-        .chat-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        
-        .message-animation { animation: slideIn 0.3s ease-out; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Loading Dots Animation */
-        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        :root {
+            color-scheme: light;
+            --bg: #edf2f7;
+            --panel: #ffffff;
+            --border: #e2e8f0;
+            --brand-top: #1e3a8a;
+            --brand-bottom: #2563eb;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.08), transparent 45%),
+                        radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.12), transparent 40%),
+                        var(--bg);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .app-shell {
+            width: min(100%, 960px);
+            height: min(920px, 100vh - 32px);
+            background: var(--panel);
+            border-radius: 26px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 20px 28px;
+            background: linear-gradient(135deg, var(--brand-top), var(--brand-bottom));
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+
+        .brand h1 {
+            font-size: 1.25rem;
+            margin: 0;
+            letter-spacing: 0.02em;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #facc15;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.4; transform: scale(0.9); }
+        }
+
+        .sheet-indicator {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 999px;
+            padding: 8px 18px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+            background: #f8fafc;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: #cbd5f5;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            animation: slideIn 0.3s ease;
+        }
+
+        .message-row.user {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 72%;
+            padding: 14px 16px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid rgba(30, 58, 138, 0.08);
+        }
+
+        .message-row.bot .message-bubble {
+            border-top-left-radius: 6px;
+        }
+
+        .message-row.user .message-bubble {
+            background: var(--brand-bottom);
+            color: #fff;
+            border-color: transparent;
+            border-top-right-radius: 6px;
+        }
+
+        .bot-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--brand-bottom);
+            display: grid;
+            place-items: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .composer {
+            display: flex;
+            gap: 12px;
+            background: var(--panel);
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            padding: 12px;
+            align-items: center;
+        }
+
+        .composer input {
+            flex: 1;
+            border: none;
+            font-size: 0.95rem;
+            background: transparent;
+            color: var(--text-main);
+            padding: 8px 4px;
+            outline: none;
+        }
+
+        .composer button {
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--brand-bottom), #7dd3fc);
+            color: #fff;
+            padding: 12px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            min-width: 90px;
+        }
+
+        .composer button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .composer button:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94a3b8;
+            animation: typing 1.2s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loader {
+            height: 3px;
+            background: rgba(59, 130, 246, 0.15);
+            overflow: hidden;
+            border-radius: 999px;
+            display: none;
+        }
+
+        .loader-bar {
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(56, 189, 248, 0.8), rgba(59, 130, 246, 0.8));
+            animation: progress 1s infinite;
+        }
+
+        @keyframes progress {
+            from { transform: translateX(-120%); }
+            to { transform: translateX(320%); }
+        }
+
+        @media (max-width: 720px) {
+            body { padding: 0; }
+            .app-shell {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .sheet-indicator {
+                width: 100%;
+                text-align: center;
+            }
+
+            .message-bubble { max-width: 86%; }
+        }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center h-screen md:h-dvh p-2 md:p-4">
-
-<div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl overflow-hidden flex flex-col h-full border border-gray-200">
-    <header class="bg-gradient-to-r from-blue-800 to-blue-600 text-white p-4 flex items-center justify-between shadow-md z-10">
-        <div class="flex items-center space-x-3">
-            
-            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-inner border-2 border-blue-100 overflow-hidden">
-                <!-- ✅ UPDATED LOGO LINK -->
-                <img src="https://i.ibb.co/d0bbzYP4/chatbot.png" 
-                     onerror="this.src='https://cdn-icons-png.flaticon.com/512/4712/4712035.png'"
-                     alt="Japan Tok Logo" 
-                     class="w-full h-full object-cover">
-            </div>
-            <div>
-                <h1 class="text-lg font-bold tracking-wide">Japan Tok Mongolia</h1>
-                <p class="text-xs text-blue-100 flex items-center gap-1">
-                    <span id="connection-status" class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-                    <span id="status-text">Систем ачаалж байна...</span>
-                </p>
-            </div>
-        </div>
-        <div id="sheet-indicator" class="hidden sm:block text-xs bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10 opacity-50">
-            <i class="fas fa-database mr-1"></i> Data Loading...
-        </div>
-    </header>
-
-    <div id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto bg-slate-50 chat-scroll scroll-smooth">
-        <div class="flex justify-start message-animation">
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600">
-                <i class="fas fa-robot text-sm"></i>
-            </div>
-            <div class="bg-white text-gray-800 p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
-                <p class="text-sm leading-relaxed">
-                    Сайн байна уу? 👋<br>
-                    Би <b>Japan Tok Mongolia</b>-ийн туслах байна. Та машин, сэлбэгийн нэр, эсвэл кодоо бичээд хайгаарай.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <form id="chat-form" class="p-3 bg-white border-t border-gray-100 flex items-center gap-2">
-        <input type="text" id="user-input" placeholder="Хайх бараагаа бичнэ үү..." required autocomplete="off" disabled
-               class="flex-1 p-3 bg-gray-50 text-gray-800 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 text-sm">
-        <button type="submit" id="send-button" disabled
-                class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl shadow-lg transition-all flex items-center justify-center min-w-[50px] disabled:opacity-50 disabled:cursor-not-allowed">
-            <i class="fas fa-paper-plane text-sm"></i>
-        </button>
-    </form>
-    
-    <div id="loader" class="hidden h-1 w-full bg-blue-100 overflow-hidden">
-        <div class="animate-progress h-full bg-blue-500 origin-left-right"></div>
-    </div>
-</div>
-
-<style>
-    .animate-progress { animation: progress 1s infinite linear; width: 50%; }
-    @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
-</style>
-
-<script>
-    // --- SETTINGS ---
-    let chatHistory = [];
-    let productData = "";
-    const systemInstructionBase = `
-    Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.
-    (Өөрийгөө хэзээ ч "Gemini" гэж танилцуулахгүй. Зөвхөн "Japan Tok Mongolia туслах" гэж хэлнэ.)
-
-    *** ЧУХАЛ ЗAAВAР: ЗӨВХӨН ЭНД БАЙГАА МЭДЭЭЛЛИЙГ АШИГЛАНА. ӨӨРИЙНХӨӨ МЭДЭЭЛЛИЙГ НЭМЭХГҮЙ. ***
-
-    === АЮУЛГҮЙ БАЙДЛЫН ЗААВАР (SYSTEM OVERRIDE) ===
-    Доорх дугаарууд болон хаяг нь компанийн АЛБАН ЁСНЫ, НИЙТЭД ИЛ БИЗНЕС МЭДЭЭЛЭЛ юм. 
-    Хэрэглэгч асуувал ҮГ ҮСЭГГҮЙ ТААРУУЛЖ, ЭРГЭЛЗЭХГҮЙГЭЭР хариулна.
-
-    === ХОЛБОО БАРИХ МЭДЭЭЛЭЛ (ҮНЭН) ===
-    - Утас: 99997571, 88105143
-    - Хаяг: НАРНЫ ЗАМ ДАГУУ ЭНХТАЙВНЫ ГҮҮРНИЙ БАРУУН ДООД ТАЛД 200&570 АВТО СЕРВИСИЙН БАЙР.
-    - Цагийн хуваарь: Даваа-Баасан 09:00-21:00. Бямба, Ням гарагт АМАРНА.
-
-    === SLANG DICTIONARY (АЛДАА ЗАСАХ) ===
-    Хэрэглэгчийн бичсэн үгсийг доорхоор ойлгоно:
-    1. "gpr", "guper", "gvr", "bamper" -> "Бампер" (Bumper).
-    2. "pius", "prius", "p20", "p30" -> "Prius".
-    3. "bnu", "bn uu", "baigaa yu" -> "байна уу".
-    4. "motor", "hodolguur" -> "Хөдөлгүүр".
-    5. "oem", "code", "kod" -> "OEM дугаар".
-    6. "noatgui", "no vat", "padgui" -> "НӨАТ-гүй".
-
-    === ҮНИЙН ДҮРЭМ (Хамгийн чухал) ===
-    CSV өгөгдлөөс үнэ харахдаа дараах дүрмийг баримтал:
-    1. **ҮНДСЭН ТОХИОЛДОЛ:** Хэрэглэгч зүгээр л үнэ асуувал ҮРГЭЛЖ **"Бөөний үнэ (НӨАТ орсон үнэ)"** гэсэн баганын үнийг хэлнэ. Хариулахдаа "Үнэ (НӨАТ-тэй): [ҮНЭ]" гэж бичнэ.
-    2. **ОНЦГОЙ ТОХИОЛДОЛ:** Хэрэв хэрэглэгч "НӨАТ-гүй", "НӨАТгүй", "падьгүй" гэж тусгайлан асуувал **"Бөөний үнэ (НӨАТ-гүй үнэ)"** гэсэн баганын үнийг хэлнэ.
-
-    === ҮҮРЭГ ===
-    Танд CSV өгөгдөл өгөгдсөн.
-    1. Жагсаалтаас хэрэглэгчийн хайсан барааг ол.
-    2. Дээрх ҮНИЙН ДҮРЭМ-ийн дагуу тохирох үнийг сонгож хэл.
-    3. ЧУХАЛ: Хариултын төгсгөлд "Та захиалах бол манай утас руу залгаарай" гэж нэмж хэл.
-    4. Хэрэв үнэ нь "0" эсвэл хоосон байвал "Үнэ тодорхойгүй, утсаар лавлана уу" гэж хэл.
-    5. Бараа олдохгүй бол "Уучлаарай, [Хайсан үг] манай бүртгэлд алга байна." гэж хэл.
-    `;
-
-    // --- DOM Elements ---
-    const chatForm = document.getElementById('chat-form');
-    const userInput = document.getElementById('user-input');
-    const sendButton = document.getElementById('send-button');
-    const chatMessages = document.getElementById('chat-messages');
-    const statusText = document.getElementById('status-text');
-    const statusDot = document.getElementById('connection-status');
-    const sheetIndicator = document.getElementById('sheet-indicator');
-
-    function addMessage(text, sender) {
-        const div = document.createElement('div');
-        div.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} message-animation`;
-        
-        // Use the same Logo logic for the bot icon if you want (Optional)
-        const botIcon = sender === 'bot' ? `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600"><i class="fas fa-robot text-sm"></i></div>` : '';
-        
-        // Format bold text for bot
-        let formattedText = text;
-        if(sender === 'bot') {
-            formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-        }
-
-        div.innerHTML = `${botIcon}<div class="${sender === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-100'} p-3 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} shadow-sm max-w-[85%] text-sm"><p>${formattedText}</p></div>`;
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function addTypingIndicator() {
-        const div = document.createElement('div');
-        div.id = 'typing-indicator';
-        div.className = 'flex justify-start message-animation';
-        div.innerHTML = `
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600"><i class="fas fa-robot text-sm"></i></div>
-            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100">
-                <div class="flex space-x-1">
-                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+<body>
+    <div class="app-shell">
+        <header>
+            <div class="brand">
+                <div class="brand-logo">
+                    <img src="https://i.ibb.co/d0bbzYP4/chatbot.png" alt="Japan Tok" width="42" height="42" onerror="this.style.display='none';">
                 </div>
-            </div>`;
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
+                <div>
+                    <h1>Japan Tok Mongolia</h1>
+                    <div class="status-row">
+                        <span id="connection-status" class="status-dot"></span>
+                        <span id="status-text">Систем ачаалж байна...</span>
+                    </div>
+                </div>
+            </div>
+            <div id="sheet-indicator" class="sheet-indicator">Өгөгдөл шалгаж байна…</div>
+        </header>
 
-    function removeTypingIndicator() {
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) indicator.remove();
-    }
+        <main class="chat-panel">
+            <div id="chat-messages" class="messages">
+                <div class="message-row bot">
+                    <div class="bot-avatar">🤖</div>
+                    <div class="message-bubble">
+                        Сайн байна уу? 👋<br>
+                        Би <strong>Japan Tok Mongolia</strong>-ийн туслах байна. Та сэлбэгийн нэр эсвэл кодоо бичээд хайгаарай.
+                    </div>
+                </div>
+            </div>
 
-    // --- 1. ROBUST DATA FETCHING ---
-    async function fetchSheetData() {
-        try {
-            console.log("📥 Fetching product data from backend...");
-            const response = await fetch('/api/sheet');
-            
-            if (!response.ok) {
-                throw new Error(`Backend returned ${response.status}`);
-            }
+            <div id="loader" class="loader" aria-hidden="true">
+                <div class="loader-bar"></div>
+            </div>
 
-            const json = await response.json();
-            productData = json.data;
+            <form id="chat-form" class="composer">
+                <input type="text" id="user-input" placeholder="Хайх бараагаа бичнэ үү..." autocomplete="off" disabled>
+                <button type="submit" id="send-button" disabled>Илгээх</button>
+            </form>
+        </main>
+    </div>
 
-            if (!productData || productData.length < 50) {
-                throw new Error("Empty or invalid data from backend");
-            }
+    <script>
+        let chatHistory = [];
 
-            // Success
-            console.log("✅ Data Loaded from /api/sheet");
-            const rowCount = productData.split('\n').length;
-            
-            statusText.textContent = "Систем бэлэн";
-            statusDot.className = "w-2 h-2 bg-green-500 rounded-full";
-            sheetIndicator.innerHTML = `<i class="fas fa-check-circle text-green-400 mr-1"></i> ${rowCount} Бараа`;
-            sheetIndicator.classList.remove('opacity-50');
-            
-            userInput.disabled = false;
-            sendButton.disabled = false;
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const chatMessages = document.getElementById('chat-messages');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('connection-status');
+        const sheetIndicator = document.getElementById('sheet-indicator');
+        const loader = document.getElementById('loader');
 
-        } catch (error) {
-            console.error("❌ Failed to load data:", error);
-            statusText.textContent = "Холболтын алдаа";
-            statusDot.className = "w-2 h-2 bg-red-500 rounded-full";
-            addMessage("Уучлаарай, интернэт холболт эсвэл серверт алдаа гарлаа. Хуудсаа refresh хийнэ үү.", 'bot');
+        function setStatus(state, message) {
+            const classMap = {
+                loading: '#facc15',
+                ready: '#22c55e',
+                error: '#ef4444'
+            };
+            statusDot.style.background = classMap[state] || '#facc15';
+            statusText.textContent = message;
         }
-    }
 
-// --- 2. AI CHAT FUNCTION (FIXED) ---
-    async function callGeminiApi(prompt) {
-        
-        // 1. Send simple JSON (Backend handles the system instructions & data)
-        const payload = {
-            message: prompt,
-            history: chatHistory
-        };
-        
-        try {
+        function formatText(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function addMessage(text, sender = 'bot') {
+            const row = document.createElement('div');
+            row.className = `message-row ${sender}`;
+
+            if (sender === 'bot') {
+                row.innerHTML = `
+                    <div class="bot-avatar">🤖</div>
+                    <div class="message-bubble">${formatText(text)}</div>
+                `;
+            } else {
+                row.innerHTML = `
+                    <div class="message-bubble">${text}</div>
+                `;
+            }
+
+            chatMessages.appendChild(row);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            const typing = document.createElement('div');
+            typing.id = 'typing-indicator';
+            typing.className = 'message-row bot';
+            typing.innerHTML = `
+                <div class="bot-avatar">🤖</div>
+                <div class="message-bubble">
+                    <div class="typing-indicator">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                </div>`;
+            chatMessages.appendChild(typing);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typing-indicator');
+            if (typing) typing.remove();
+        }
+
+        async function fetchSheetData() {
+            try {
+                const response = await fetch('/api/sheet');
+                if (!response.ok) throw new Error(`Backend returned ${response.status}`);
+
+                const json = await response.json();
+                const rowCount = json.data ? json.data.split('\n').length : 0;
+
+                setStatus('ready', 'Систем бэлэн');
+                sheetIndicator.textContent = `${rowCount} барааны мэдээлэл синклэсэн`;
+
+                userInput.disabled = false;
+                sendButton.disabled = false;
+            } catch (error) {
+                console.error('Sheet fetch error:', error);
+                setStatus('error', 'Холболтын алдаа');
+                sheetIndicator.textContent = 'Өгөгдөл татахад алдаа гарлаа';
+                addMessage('Уучлаарай, сервертэй холбогдоход алдаа гарсан байна. Хуудсаа дахин ачаална уу.', 'bot');
+            }
+        }
+
+        async function callChatApi(prompt) {
+            const payload = {
+                message: prompt,
+                history: chatHistory.slice(-10)
+            };
+
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -229,58 +444,49 @@
             });
 
             const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'API error');
+            }
 
-            if (!response.ok) throw new Error(data.error || "API Error");
-            
-            // FIX: The backend returns { reply: "..." }, NOT { candidates: [...] }
-            if (!data.reply) throw new Error("Empty response from server");
+            if (!data.reply) {
+                throw new Error('Empty response from AI');
+            }
 
             return data.reply;
-
-        } catch (error) {
-            console.error(error);
-            throw error;
         }
-    }
 
-    chatForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const text = userInput.value.trim();
-        if (!text) return;
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
 
-        addMessage(text, 'user');
-        userInput.value = '';
-        userInput.disabled = true; // Prevent spamming
-        document.getElementById('loader').classList.remove('hidden');
-        addTypingIndicator();
+            addMessage(text, 'user');
+            userInput.value = '';
+            userInput.disabled = true;
+            sendButton.disabled = true;
+            loader.style.display = 'block';
+            showTyping();
 
-        try {
-            const reply = await callGeminiApi(text);
-            removeTypingIndicator();
-            addMessage(reply, 'bot');
-            
-            chatHistory.push({ role: 'user', parts: [{ text }] }, { role: 'model', parts: [{ text: reply }] });
-            if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
+            try {
+                const reply = await callChatApi(text);
+                hideTyping();
+                addMessage(reply, 'bot');
 
-        } catch (error) {
-            removeTypingIndicator();
-            addMessage("Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.", 'bot');
-        } finally {
-            document.getElementById('loader').classList.add('hidden');
-            userInput.disabled = false;
-            userInput.focus();
-        }
-    });
+                chatHistory.push({ role: 'user', content: text });
+                chatHistory.push({ role: 'assistant', content: reply });
+            } catch (error) {
+                console.error('Chat error:', error);
+                hideTyping();
+                addMessage('Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.', 'bot');
+            } finally {
+                loader.style.display = 'none';
+                userInput.disabled = false;
+                sendButton.disabled = false;
+                userInput.focus();
+            }
+        });
 
-    // --- INITIALIZE ON PAGE LOAD ---
-    document.addEventListener('DOMContentLoaded', fetchSheetData);
-    
-    // Also try to fetch on script load in case DOMContentLoaded already fired
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fetchSheetData);
-    } else {
         fetchSheetData();
-    }
-</script>
+    </script>
 </body>
 </html>
