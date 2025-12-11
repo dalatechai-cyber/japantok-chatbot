@@ -19,6 +19,19 @@ const toSentenceCase = (text) => {
 const GEMINI_URL =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+const CONTACT_LINE = 'Та захиалах бол манай утас руу залгаарай.';
+const CONTACT_NUMBERS = '99997571, 88105143';
+const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр.\nЦагийн хуваарь: Даваа-Баасан 09:00-21:00 • Бямба/Ням амарна.`;
+
+const SLANG_RULES = [
+    { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
+    { pattern: /(pius|prius|p20|p30)/gi, replace: 'prius' },
+    { pattern: /(bnu|bn uu|baigaa yu)/gi, replace: 'байна уу' },
+    { pattern: /(motor|hodolguur)/gi, replace: 'хөдөлгүүр' },
+    { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
+    { pattern: /(noatgui|no vat|padgui)/gi, replace: 'нөат-гүй' }
+];
+
 export default async function handler(req, res) {
     const cors = applyCors(req, res, { methods: 'POST,OPTIONS' });
 
@@ -36,6 +49,8 @@ export default async function handler(req, res) {
     }
 
     const { message, history } = normalizeRequestBody(req.body);
+    const normalizedQuery = normalizeUserMessage(message);
+    const searchQuery = normalizedQuery || message;
 
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
@@ -46,7 +61,7 @@ export default async function handler(req, res) {
 
     try {
         const allProducts = await fetchProductRows();
-        const matchedProducts = findMatchingProducts(message, allProducts, 6);
+        const matchedProducts = findMatchingProducts(searchQuery, allProducts, 6);
 
         if (!matchedProducts.length) {
             const fallback = buildNoMatchResponse(message);
@@ -62,7 +77,7 @@ export default async function handler(req, res) {
         }
 
         const promptContext = formatProductsForPrompt(matchedProducts);
-        const systemInstruction = buildSystemInstruction(promptContext, matchedProducts.length);
+        const systemInstruction = buildSystemInstruction(promptContext, matchedProducts.length, message);
         const payload = buildGeminiPayload(history, message, systemInstruction);
 
         const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
@@ -86,7 +101,8 @@ export default async function handler(req, res) {
             return res.status(response.status).json({ error: data.error?.message || 'AI Error' });
         }
 
-        const reply = extractReplyText(data) || buildFallbackResponse();
+        const rawReply = extractReplyText(data) || buildFallbackResponse();
+        const reply = ensureContactLine(rawReply);
 
         await logInteraction({
             requestId,
@@ -178,26 +194,28 @@ function buildGeminiPayload(history = [], message, systemInstruction) {
     };
 }
 
-function buildSystemInstruction(contextText, matchCount) {
-    return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах. \n\n` +
+function buildSystemInstruction(contextText, matchCount, userMessage = '') {
+    return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.\n\n` +
+        `=== Компанийн мэдээлэл ===\n${CONTACT_BLOCK}\n\n` +
+        `=== Хэрэглэгчийн хүсэлт ===\n${userMessage || 'Тодорхойгүй'}\n\n` +
         `=== Олдсон бараа (${matchCount}) ===\n${contextText}\n\n` +
         `=== ДҮРЭМ ===\n` +
-        `1. ЗӨВХӨН дээрх барааны мэдээлэл дээр үндэслэн хариул.\n` +
-        `2. Хэрэглэгч НӨАТ-гүй үнэ асуусан тохиолдолд "Үнэ (НӨАТ-гүй)" баганын мэдээллийг ашигла.\n` +
-        `3. Эсрэгээрээ онцгойлон дурьдаагүй бол "Үнэ (НӨАТ-тэй)" баганын мэдээллийг ашигла.\n` +
-        `4. Бүх мөнгөн дүнг мянгатын таслалтай бич (жишээ нь: 88,000₮).\n` + // Formatting Rule
-        `5. Мэдээлэл байхгүй бол "Уучлаарай, таны хайсан бараа одоогоор бүртгэлд алга байна" гэж хэл.\n` +
-        `6. ХАЯГ, ЦАГИЙН ХУВААРИЙН талаарх асуултад дараах өгөгдлөөр хариул: ` +
-        `"Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр." ` + // Sentence Case Applied
-        `Цагийн хуваарь: "Даваа-Баасан 09:00-21:00, Бямба/Ням амарна."\n` +
-        `7. Хэрэв бараа санал болгож байгаа бол яг дараах бүтэцтэйгээр, мөр тус бүрт нь бич: \n\n` + // Enforce Structure
-        `📦 **Барааны мэдээлэл:**\n` +
-        `**Нэр:** <бүтээгдэхүүний нэр>\n` +
-        `**Код:** <TOK эсвэл OEM код>\n` +
-        `**Үнэ:** <Үнэ> (НӨАТ орсон)\n` +
-        `📞 **Захиалах:** Та доорх утсаар холбогдоно уу.\n` +
-        `\n` +
-        `8. Олон сонголт бүхий үед илүү тохирох 1-2 барааг дээрх бүтэцтэйгээр жагсаа. Жагсаалтын төгсгөлд зөвхөн нэг удаа холбоо барих дугаарыг бич: "Утас: 99997571, 88105143".`;
+        `1. Зөвхөн дээрх өгөгдөл дээр үндэслэн хариул; та мэдээлэл зохиож болохгүй.\n` +
+        `2. Хэрэглэгч НӨАТ-гүй үнэ асуусан бол "Үнэ (НӨАТ-гүй)" утгыг, онцгойлон дурдаагүй бол "Үнэ (НӨАТ-тэй)" утгыг ашигла.\n` +
+        `3. Бүх мөнгөн дүнг мянгатын таслалтай, төгрөгийн тэмдэгттэй (₮) бич.\n` +
+        `4. Нэг эсвэл хоёр хамгийн тохирох барааг дараах бүтэцтэйгээр жагсаа:\n` +
+        `📦 Бараа: <нэр>\nКод: TOK <tok> | OEM <oem>\nҮнэ: <НӨАТ-тэй> / <НӨАТ-гүй>\nСтатус: Нөөц, хүргэлт гэх мэт\n` +
+        `5. Бараа олдоогүй бол соёлтойгоор мэдэгдэж, дахин кодоо шалгаж бичихийг санал болго.\n` +
+        `6. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
+        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} ${CONTACT_NUMBERS}." гэж бич.\n` +
+        `8. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n\n` +
+        `=== Бичлэгийн засвар (Slang) ===\n` +
+        `- "gpr/guper/gvr/bamper" → "бампер"\n` +
+        `- "pius/prius/p20/p30" → "Prius"\n` +
+        `- "bnu/bn uu/baigaa yu" → "байна уу"\n` +
+        `- "motor/hodolguur" → "хөдөлгүүр"\n` +
+        `- "oem/kod/code" → "OEM код"\n` +
+        `- "noatgui/no vat/padgui" → "НӨАТ-гүй"\n`;
 }
 
 function extractReplyText(data) {
@@ -210,11 +228,32 @@ function extractReplyText(data) {
 }
 
 function buildFallbackResponse() {
-    return 'Уучлаарай, түр зуурын алдаа гарлаа. Та дахин оролдоно уу эсвэл 99997571, 88105143 дугаарт холбогдоно уу.';
+    return ensureContactLine('Уучлаарай, түр зуурын алдаа гарлаа. Та дахин оролдоно уу.');
 }
 
 function buildNoMatchResponse(query) {
     const safeQuery = query?.trim() || '';
     // Standardized Polite Error Message
-    return `Уучлаарай, таны хайсан ${safeQuery} кодтой бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`;
+    return ensureContactLine(`Уучлаарай, таны хайсан ${safeQuery} кодтой бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`);
+}
+
+function normalizeUserMessage(text = '') {
+    if (!text) return '';
+    return SLANG_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replace), text.toLowerCase());
+}
+
+function ensureContactLine(text = '') {
+    const trimmed = (text || '').trim();
+    if (!trimmed) {
+        return `${CONTACT_LINE} ${CONTACT_NUMBERS}.`;
+    }
+
+    const lower = trimmed.toLowerCase();
+    const hasLine = lower.includes(CONTACT_LINE.toLowerCase());
+    const hasNumbers = lower.includes('99997571') && lower.includes('88105143');
+    if (hasLine || hasNumbers) {
+        return trimmed;
+    }
+
+    return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_NUMBERS}.`;
 }
