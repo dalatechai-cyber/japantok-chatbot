@@ -1,320 +1,166 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="mn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chatbot Widget</title>
-    <style>
-        /* --- CSS STYLES --- */
-        :root {
-            --primary-color: #007bff; /* Brighter Blue */
-            --primary-hover: #0056b3;
-            --bg-color: #ffffff;
-            --text-color: #333333;
-            --gray-light: #e9ecef; /* Light gray for bot messages */
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            font-family: var(--font-family);
-            background-color: #f4f4f4; /* Just for demo background */
-            margin: 0;
-            padding: 0;
-        }
-
-        /* 1. The Floating Launcher Button */
-        .chat-launcher {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            background-color: var(--primary-color);
-            border-radius: 50%;
-            box-shadow: var(--shadow);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s ease, background-color 0.2s;
-            z-index: 9999;
-        }
-
-        .chat-launcher:hover {
-            transform: scale(1.05);
-            background-color: var(--primary-hover);
-        }
-
-        .chat-launcher svg {
-            width: 30px;
-            height: 30px;
-            fill: white;
-        }
-
-        /* 2. The Chat Window Container */
-        .chat-window {
-            position: fixed;
-            bottom: 90px; /* Above the launcher */
-            right: 20px;
-            width: 380px; /* Slightly wider */
-            height: 550px; /* Slightly taller */
-            max-height: 80vh;
-            background-color: var(--bg-color);
-            border-radius: 20px; /* More rounded */
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(20px);
-            transition: all 0.3s ease-in-out;
-            z-index: 9998;
-            font-size: 14px;
-        }
-
-        /* State: Open */
-        .chat-window.open {
-            opacity: 1;
-            pointer-events: all;
-            transform: translateY(0);
-        }
-
-        /* Header */
-        .chat-header {
-            background-color: #fff; /* White background */
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #eee;
-        }
-
-        .header-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .bot-avatar {
-            width: 40px;
-            height: 40px;
-            background-color: var(--primary-color); /* Blue avatar */
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 20px;
-        }
-
-        .header-text-container {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header-title {
-            font-weight: 600;
-            font-size: 16px;
-            color: var(--text-color);
-        }
-        
-        .status-badge {
-            display: inline-block;
-            background-color: #e7f1ff; /* Light blue badge */
-            color: var(--primary-color);
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 12px;
-            margin-top: 4px;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            color: #999;
-            font-size: 24px;
-            cursor: pointer;
-            line-height: 1;
-        }
-
-        /* Messages Area */
-        .chat-messages {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            background-color: #f8f9fa; /* Very light gray background for messages */
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 16px;
-            font-size: 14px;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-
-        .message.bot {
-            align-self: flex-start;
-            background-color: var(--gray-light);
-            color: var(--text-color);
-            border-bottom-left-radius: 4px;
-        }
-
-        .message.user {
-            align-self: flex-end;
-            background-color: white; /* White for user */
-            color: var(--text-color);
-            border: 1px solid #eee; /* Thin border for user message */
-            border-bottom-right-radius: 4px;
-        }
-
-        /* Input Area */
-        .chat-input-area {
-            padding: 16px;
-            border-top: 1px solid #eee;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background-color: white;
-        }
-
-        .chat-input-area input {
-            flex: 1;
-            padding: 12px 16px;
-            border-radius: 24px;
-            border: 1px solid #ddd;
-            outline: none;
-            font-size: 14px;
-            transition: border-color 0.2s;
-        }
-
-        .chat-input-area input:focus {
-            border-color: var(--primary-color);
-        }
-
-        .send-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8px;
-            border-radius: 50%;
-            background-color: #f0f2f5;
-        }
-        
-        .send-btn:hover {
-            background-color: #e4e6eb;
-        }
-        
-        .send-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-            transform: rotate(-45deg); /* Match the angle in the image */
-            margin-left: 2px;
-        }
-
-    </style>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Japan Tok Mongolia · Live Assistant</title>
+   <link rel="stylesheet" href="/styles.css">
+   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231e3a8a'/%3E%3Ctext x='32' y='42' font-size='32' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3EJ%3C/text%3E%3C/svg%3E">
+   <style>
+       @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+       :root { color-scheme: dark; }
+       * { box-sizing: border-box; }
+       body {
+           font-family: 'Space Grotesk', sans-serif;
+           background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.25), transparent 45%),
+                       radial-gradient(circle at 20% 20%, rgba(251, 191, 36, 0.2), transparent 35%),
+                       #020617;
+           color: #e2e8f0;
+           min-height: 100vh;
+           margin: 0;
+           padding: 0;
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           text-rendering: optimizeLegibility;
+       }
+       .shell {
+           width: min(1100px, 100%);
+           padding: clamp(1.5rem, 5vw, 4rem);
+           display: grid;
+           gap: clamp(1.5rem, 3vw, 3rem);
+           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+       }
+       .panel {
+           background: rgba(2, 6, 23, 0.78);
+           border: 1px solid rgba(148, 163, 184, 0.25);
+           border-radius: 28px;
+           padding: clamp(1.5rem, 3vw, 3rem);
+           box-shadow: 0 25px 70px rgba(2, 6, 23, 0.6);
+           backdrop-filter: blur(18px);
+       }
+       .hero h1 {
+           font-size: clamp(2.2rem, 4vw, 3.5rem);
+           line-height: 1.1;
+           margin-top: 0;
+       }
+       .hero p { color: #94a3b8; }
+       .badges {
+           display: flex;
+           flex-wrap: wrap;
+           gap: 0.6rem;
+           margin-bottom: 1.25rem;
+       }
+       .badge {
+           padding: 0.35rem 0.9rem;
+           border: 1px solid rgba(148, 163, 184, 0.4);
+           border-radius: 999px;
+           font-size: 0.85rem;
+           color: #f8fafc;
+       }
+       .cta {
+           display: inline-flex;
+           align-items: center;
+           gap: 0.45rem;
+           padding: 0.75rem 1.35rem;
+           border-radius: 999px;
+           background: linear-gradient(135deg, #fcd34d, #f97316);
+           color: #0f172a;
+           text-decoration: none;
+           font-weight: 600;
+           box-shadow: 0 15px 35px rgba(249, 115, 22, 0.35);
+       }
+       .stats {
+           margin-top: 2rem;
+           display: grid;
+           grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+           gap: 1rem;
+       }
+       .stat {
+           padding: 1rem;
+           border-radius: 20px;
+           background: rgba(15, 23, 42, 0.8);
+           border: 1px solid rgba(148, 163, 184, 0.2);
+       }
+       .stat span {
+           display: block;
+           font-size: 2rem;
+           font-weight: 600;
+           color: #fde68a;
+       }
+       .widget-hint {
+           margin-top: 2rem;
+           color: #94a3b8;
+           font-size: 0.95rem;
+       }
+       ul.features {
+           list-style: none;
+           padding: 0;
+           margin: 1.5rem 0 0;
+           display: flex;
+           flex-direction: column;
+           gap: 1.25rem;
+           color: #cbd5f5;
+       }
+       ul.features li strong {
+           color: #f8fafc;
+           display: block;
+           margin-bottom: 0.25rem;
+       }
+   </style>
 </head>
 <body>
-
-    <div class="chat-window" id="chatWindow">
-        <div class="chat-header">
-            <div class="header-info">
-                <div class="bot-avatar">J</div>
-                <div class="header-text-container">
-                    <div class="header-title">Japan Tok Mongolia</div>
-                    <span class="status-badge">Систем бэлэн</span>
-                </div>
-            </div>
-            <button class="close-btn" onclick="toggleChat()">&times;</button>
-        </div>
-
-        <div class="chat-messages" id="chatMessages">
-            <div class="message bot">
-                Сайн байна уу? 👋<br>
-                Би Japan Tok Mongolia-ийн туслах байна. Та машин, сэлбэгийн нэр, эсвэл кодоо бичээрэй.
-            </div>
-        </div>
-
-        <div class="chat-input-area">
-            <input type="text" id="userInput" placeholder="Хайх бараагаа бичнэ үү..." onkeypress="handleKeyPress(event)">
-            <button class="send-btn" onclick="sendMessage()">
-                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
-            </button>
-        </div>
-    </div>
-
-    <div class="chat-launcher" onclick="toggleChat()">
-        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"></path></svg>
-    </div>
-
-    <script>
-        /* --- JAVASCRIPT LOGIC --- */
-        
-        // Toggle Chat Window Visibility
-        function toggleChat() {
-            const chatWindow = document.getElementById('chatWindow');
-            chatWindow.classList.toggle('open');
-            
-            // Focus input when opening
-            if (chatWindow.classList.contains('open')) {
-                document.getElementById('userInput').focus();
-            }
-        }
-
-        // Handle Enter key
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
-
-        // Send Message Function
-        function sendMessage() {
-            const inputField = document.getElementById('userInput');
-            const messageText = inputField.value.trim();
-
-            if (messageText === "") return;
-
-            // 1. Add User Message to UI
-            addMessageToUI(messageText, 'user');
-            inputField.value = '';
-
-            // 2. Show "Thinking" indicator (Optional logic here)
-            
-            // 3. Simulate AI Response (Replace this part with your Google URL/API fetch)
-            setTimeout(() => {
-                // TODO: FETCH from your API here
-                // fetch('YOUR_GOOGLE_URL_HERE', { ... })
-                
-                const mockResponse = "I received your message: '" + messageText + "'. I am ready to be connected to your backend API!";
-                addMessageToUI(mockResponse, 'bot');
-            }, 600);
-        }
-
-        // Helper to add messages to the DOM
-        function addMessageToUI(text, sender) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender);
-            messageDiv.innerHTML = text; // Changed to innerHTML to support line breaks
-            
-            messagesContainer.appendChild(messageDiv);
-            
-            // Auto-scroll to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    </script>
-
+   <div class="shell">
+       <section class="panel hero">
+           <div class="badges">
+               <span class="badge">Gemini Secured</span>
+               <span class="badge">Live Sheet Sync · 5 мин</span>
+               <span class="badge">Japan Tok Mongolia</span>
+           </div>
+           <h1>Албан ёсны цахим туслах<br>Prius & Japan car сэлбэгийн асуултанд</h1>
+           <p>
+               Доод баруун буланд байрлах чат товчийг ашиглаад Ток код, OEM код, эсвэл загварын нэрээр хайлт хийнэ үү.
+               Сервер талд шүүж, зөвхөн баталгаатай Google Sheet өгөгдлөөр хариулдаг тул буруу мэдээлэл өгөх эрсдэл эрс багассан.
+           </p>
+           <a class="cta" href="tel:+97699997571">9999 7571 рүү залгах</a>
+           <p class="widget-hint">💬 Чат нээх: Доод баруун буланд байрлах дугуй товчийг дарж мессенжер маягийн цонхыг нээгээрэй.</p>
+       </section>
+       <section class="panel">
+           <h2 style="margin-top:0">Яагаад энэ туслахыг сонгох вэ?</h2>
+           <ul class="features">
+               <li>
+                   <strong>🧠 Ухаалаг шүүлтүүр</strong>
+                   Сервер талд хамгийн ойр 6 барааг сонгоод Gemini-д өгдөг тул хариулт нь бодит өгөгдлөөр баталгаажна.
+               </li>
+               <li>
+                   <strong>📦 НӨАТ-тэй ба НӨАТ-гүй үнэ</strong>
+                   Үнийг автоматаар таслалаар ялган форматлах бөгөөд хэрэглэгч хэрхэн асууснаас хамааран зөв баганыг ашиглана.
+               </li>
+               <li>
+                   <strong>🕒 Логжилт ба аудит</strong>
+                   Асуулт бүр `requestId`-тай хадгалагддаг тул дараа нь шалгаж, үйлчилгээний чанарыг баталгаажуулж болно.
+               </li>
+               <li>
+                   <strong>🌐 Widget</strong>
+                   `widget.js` скриптийг өөрийн сайтад нэмээд яг ижил туршлагыг хэрэглэгчиддээ санал болгоорой.
+               </li>
+           </ul>
+           <div class="stats">
+               <div class="stat">
+                   <span>313+</span>
+                   Бүртгэлтэй сэлбэг
+               </div>
+               <div class="stat">
+                   <span>5 мин</span>
+                   Sheet синк интервал
+               </div>
+               <div class="stat">
+                   <span>24/7</span>
+                   Автомат туслах
+               </div>
+           </div>
+       </section>
+   </div>
+   <script async src="/widget.js"></script>
 </body>
 </html>
