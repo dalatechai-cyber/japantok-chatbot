@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot Widget</title>
+    <style>
+        /* --- CSS STYLES --- */
+        :root {
+            --primary-color: #007bff; /* Brighter Blue */
+            --primary-hover: #0056b3;
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --gray-light: #e9ecef; /* Light gray for bot messages */
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: #f4f4f4; /* Just for demo background */
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 1. The Floating Launcher Button */
+        .chat-launcher {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease, background-color 0.2s;
+            z-index: 9999;
+        }
+
+        .chat-launcher:hover {
+            transform: scale(1.05);
+            background-color: var(--primary-hover);
+        }
+
+        .chat-launcher svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+
+        /* 2. The Chat Window Container */
+        .chat-window {
+            position: fixed;
+            bottom: 90px; /* Above the launcher */
+            right: 20px;
+            width: 380px; /* Slightly wider */
+            height: 550px; /* Slightly taller */
+            max-height: 80vh;
+            background-color: var(--bg-color);
+            border-radius: 20px; /* More rounded */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(20px);
+            transition: all 0.3s ease-in-out;
+            z-index: 9998;
+            font-size: 14px;
+        }
+
+        /* State: Open */
+        .chat-window.open {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateY(0);
+        }
+
+        /* Header */
+        .chat-header {
+            background-color: #fff; /* White background */
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #eee;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bot-avatar {
+            width: 40px;
+            height: 40px;
+            background-color: var(--primary-color); /* Blue avatar */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .header-text-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-color);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background-color: #e7f1ff; /* Light blue badge */
+            color: var(--primary-color);
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            margin-top: 4px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* Messages Area */
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f8f9fa; /* Very light gray background for messages */
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+            background-color: var(--gray-light);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background-color: white; /* White for user */
+            color: var(--text-color);
+            border: 1px solid #eee; /* Thin border for user message */
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Input Area */
+        .chat-input-area {
+            padding: 16px;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: white;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 24px;
+            border: 1px solid #ddd;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .send-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            border-radius: 50%;
+            background-color: #f0f2f5;
+        }
+        
+        .send-btn:hover {
+            background-color: #e4e6eb;
+        }
+        
+        .send-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+            transform: rotate(-45deg); /* Match the angle in the image */
+            margin-left: 2px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <div class="header-info">
+                <div class="bot-avatar">J</div>
+                <div class="header-text-container">
+                    <div class="header-title">Japan Tok Mongolia</div>
+                    <span class="status-badge">Систем бэлэн</span>
+                </div>
+            </div>
+            <button class="close-btn" onclick="toggleChat()">&times;</button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                Сайн байна уу? 👋<br>
+                Би Japan Tok Mongolia-ийн туслах байна. Та машин, сэлбэгийн нэр, эсвэл кодоо бичээрэй.
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="Хайх бараагаа бичнэ үү..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="chat-launcher" onclick="toggleChat()">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"></path></svg>
+    </div>
+
+    <script>
+        /* --- JAVASCRIPT LOGIC --- */
+        
+        // Toggle Chat Window Visibility
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            chatWindow.classList.toggle('open');
+            
+            // Focus input when opening
+            if (chatWindow.classList.contains('open')) {
+                document.getElementById('userInput').focus();
+            }
+        }
+
+        // Handle Enter key
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Send Message Function
+        function sendMessage() {
+            const inputField = document.getElementById('userInput');
+            const messageText = inputField.value.trim();
+
+            if (messageText === "") return;
+
+            // 1. Add User Message to UI
+            addMessageToUI(messageText, 'user');
+            inputField.value = '';
+
+            // 2. Show "Thinking" indicator (Optional logic here)
+            
+            // 3. Simulate AI Response (Replace this part with your Google URL/API fetch)
+            setTimeout(() => {
+                // TODO: FETCH from your API here
+                // fetch('YOUR_GOOGLE_URL_HERE', { ... })
+                
+                const mockResponse = "I received your message: '" + messageText + "'. I am ready to be connected to your backend API!";
+                addMessageToUI(mockResponse, 'bot');
+            }, 600);
+        }
+
+        // Helper to add messages to the DOM
+        function addMessageToUI(text, sender) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+            messageDiv.innerHTML = text; // Changed to innerHTML to support line breaks
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
