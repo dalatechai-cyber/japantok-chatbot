@@ -105,7 +105,11 @@ export default async function handler(req, res) {
             matchCount: 0,
             latencyMs: Date.now() - startedAt
         });
-        return res.status(200).json({ reply: gentlePrompt, matches: [] });
+        return res.status(200).json({
+            reply: gentlePrompt,
+            matches: [],
+            candidates: wrapCandidates(gentlePrompt)
+        });
     }
 
     try {
@@ -122,7 +126,11 @@ export default async function handler(req, res) {
                 latencyMs: Date.now() - startedAt
             });
 
-            return res.status(200).json({ reply: fallback, matches: [] });
+            return res.status(200).json({
+                reply: fallback,
+                matches: [],
+                candidates: wrapCandidates(fallback)
+            });
         }
 
         const promptContext = formatProductsForPrompt(matchedProducts);
@@ -164,7 +172,8 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             reply,
-            matches: summarizeProductsForClient(matchedProducts)
+            matches: summarizeProductsForClient(matchedProducts),
+            candidates: wrapCandidates(reply, data.candidates)
         });
     } catch (error) {
         console.error('Server Error:', error);
@@ -321,4 +330,19 @@ function ensureContactLine(text = '') {
     }
 
     return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_NUMBERS}.`;
+}
+
+function wrapCandidates(replyText = '', sourceCandidates) {
+    if (Array.isArray(sourceCandidates) && sourceCandidates.length) {
+        return sourceCandidates;
+    }
+
+    return [
+        {
+            content: {
+                parts: [{ text: replyText }]
+            },
+            finishReason: 'STOP'
+        }
+    ];
 }
