@@ -21,13 +21,21 @@ const CONTACT_NUMBERS = '99997571, 88105143';
 const CONTACT_FULL_TEXT = 'Та доорх утсаар холбогдоно уу:';
 const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр.\nЦагийн хуваарь: Даваа-Баасан 09:00-21:00 • Бямба/Ням амарна.`;
 
+const AVAILABILITY_SLANG_PATTERN = '(bnu|bn\\s*uu|bn\\s*u|bnuu|baiga\\s*yu|baigaa\\s*yu|bainuu|baigayu|bgayuu|bgayu|bga\\s*yu|bgaa\\s*yu|bgay)';
+const AVAILABILITY_SLANG_REGEX = new RegExp(AVAILABILITY_SLANG_PATTERN, 'gi'); // used for normalization
+const AVAILABILITY_SLANG_DETECT_REGEX = new RegExp(AVAILABILITY_SLANG_PATTERN, 'i'); // non-global clone for safe .test()
+const AVAILABILITY_PATTERNS = [
+    /(байна\s*уу|байгаа\s*юу)/,
+    AVAILABILITY_SLANG_DETECT_REGEX
+];
+
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
     // Match priusni, priusiin, приус variants and normalize to "prius"
     { pattern: /(priusni|priusiin|priusnii|приусын|приусний|приус|pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
     { pattern: /(snu|sn u|snuu|sainuu|sain uu|sain)/gi, replace: 'сайн уу' },
     // Match various forms of "baiga yu", "baigaa yu", etc. with flexible spacing
-    { pattern: /(bnu|bn\s*uu|baiga\s*yu|baigaa\s*yu|bainuu|baigayu)/gi, replace: 'байна уу' },
+    { pattern: AVAILABILITY_SLANG_REGEX, replace: 'байна уу' },
     { pattern: /(motor|hodolguur|motoor)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui|novat)/gi, replace: 'нөат-гүй' },
@@ -515,8 +523,9 @@ function buildNoMatchResponse(query, shouldAddContact = false) {
     
     // Check if it's a greeting or conversational phrase
     const isConversational = /сайн|байна|уу|танд|хэрэгтэй|юу|вэ|hello|hi/i.test(safeQuery);
+    const availabilityQuestion = isAvailabilityQuestion(safeQuery);
     
-    if (isConversational || !safeQuery) {
+    if (isConversational || availabilityQuestion || !safeQuery) {
         return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр, машины загвар эсвэл кодоо бичнэ үү. Жишээ нь: "Prius бампер" эсвэл "TOK код"', shouldAddContact);
     }
     
@@ -535,6 +544,11 @@ function normalizeUserMessage(text = '') {
     if (!text) return '';
 
     let normalized = text.toLowerCase();
+    SLANG_RULES.forEach((rule) => {
+        if (rule.pattern?.global) {
+            rule.pattern.lastIndex = 0;
+        }
+    });
     // Apply slang rules to normalize common misspellings
     normalized = SLANG_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replace), normalized);
 
@@ -615,6 +629,22 @@ function hasProductIntent(message = '') {
     const hasProductSearchPattern = productSearchPattern.test(message);
     
     return hasProductKeyword || looksLikeCode || hasProductSearchPattern;
+}
+
+/**
+ * Detects availability-style questions (e.g., "bgaa yu", "baina uu") so we can
+ * prompt for more detail instead of returning a hard "not found". This overlaps
+ * with SLANG_RULES normalization on purpose to catch both raw and normalized
+ * text.
+ *
+ * @param {string} message - User input to inspect.
+ * @returns {boolean} True if the message is asking whether a part exists.
+ */
+function isAvailabilityQuestion(message = '') {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    // Keep both Cyrillic phrasing and Latin slang so raw messages are caught even before normalization.
+    return AVAILABILITY_PATTERNS.some((pattern) => pattern.test(lower));
 }
 
 function ensureContactLine(text = '', shouldAddContact = false) {
