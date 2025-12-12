@@ -155,8 +155,8 @@ export default async function handler(req, res) {
             return res.status(response.status).json({ error: data.error?.message || 'AI Error' });
         }
 
-        const rawReply = extractReplyText(data) || buildFallbackResponse();
         const askingForContact = isAskingForContact(message);
+        const rawReply = extractReplyText(data) || buildFallbackResponse(askingForContact);
         const reply = ensureContactLine(rawReply, askingForContact);
 
         await logInteraction({
