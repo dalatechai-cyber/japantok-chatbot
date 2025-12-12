@@ -9,13 +9,6 @@ import {
 import { logInteraction } from '../lib/logger.js';
 import { applyCors } from '../lib/cors.js';
 
-// Helper function to fix ALL CAPS text (Available for future use if needed)
-const toSentenceCase = (text) => {
-    if (!text) return "";
-    let lower = text.toLowerCase();
-    return lower.charAt(0).toUpperCase() + lower.slice(1);
-};
-
 const GEMINI_URL =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
