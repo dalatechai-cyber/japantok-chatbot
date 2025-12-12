@@ -15,6 +15,8 @@ const GEMINI_URL =
 // Configuration constants
 const MAX_GREETING_LENGTH = 15; // Maximum characters for a message to be considered a simple greeting
 const MIN_TOKEN_LENGTH = 4; // Minimum token length to keep during normalization
+const RESULTS_PER_PAGE = 50; // Number of results to show per page
+const MAX_RESULTS_IN_PROMPT = 100; // Maximum products to send to AI for context
 
 const CONTACT_LINE = '📞 Захиалах:';
 const CONTACT_NUMBERS = '99997571, 88105143';
@@ -30,17 +32,20 @@ const AVAILABILITY_PATTERNS = [
 ];
 
 const SLANG_RULES = [
-    { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
+    { pattern: /(gpr|guper|gvr|bamper|bampeer|banper)/gi, replace: 'бампер' },
     // Match priusni, priusiin, приус variants and normalize to "prius"
     { pattern: /(priusni|priusiin|priusnii|приусын|приусний|приус|pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
     { pattern: /(snu|sn u|snuu|sainuu|sain uu|sain)/gi, replace: 'сайн уу' },
     // Match various forms of "baiga yu", "baigaa yu", etc. with flexible spacing
     { pattern: AVAILABILITY_SLANG_REGEX, replace: 'байна уу' },
-    { pattern: /(motor|hodolguur|motoor)/gi, replace: 'хөдөлгүүр' },
+    { pattern: /(motor|hodolguur|motoor|mator)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui|novat)/gi, replace: 'нөат-гүй' },
     { pattern: /(utasni dugar|utas dugar|utasny dugar)/gi, replace: 'утасны дугаар' },
-    { pattern: /(hedve|hedvee|хэдвэ)/gi, replace: 'хэд вэ' }
+    { pattern: /(hedve|hedvee|хэдвэ)/gi, replace: 'хэд вэ' },
+    { pattern: /(harrier|harier|harer)/gi, replace: 'harrier' },
+    { pattern: /(фар|headlight|headlamp|lamp)/gi, replace: 'фар' },
+    { pattern: /(толь|mirror|mirr|зөөгч толь)/gi, replace: 'толь' }
 ];
 
 const STOPWORD_PHRASES = [
@@ -124,6 +129,8 @@ const GREETING_KEYWORDS = [
 const PRODUCT_KEYWORDS = [
     'бампер',
     'prius',
+    'харриер',
+    'harrier',
     'хөдөлгүүр',
     'мотор',
     'сэлбэг',
@@ -144,7 +151,18 @@ const PRODUCT_KEYWORDS = [
     'motor',
     'engine',
     'part',
-    'spare'
+    'spare',
+    'фар',
+    'headlight',
+    'headlamp',
+    'толь',
+    'mirror',
+    'хаалга',
+    'door',
+    'капот',
+    'hood',
+    'хавтан',
+    'panel'
 ];
 
 export default async function handler(req, res) {
@@ -175,6 +193,26 @@ export default async function handler(req, res) {
     });
     // Keep both normalized and raw tokens so we don't lose useful inputs (e.g., English spellings)
     const searchQuery = Array.from(searchTokens).join(' ');
+    
+    // Check for pagination request ("more", "дараагийнх", etc.)
+    const requestingMore = /\b(more|дараагийнх|цааш|next)\b/i.test(message.toLowerCase());
+    
+    // Extract page number from history or default to 1
+    let currentPage = 1;
+    if (requestingMore && history.length > 0) {
+        // Try to find the last page number mentioned in assistant's responses
+        for (let i = history.length - 1; i >= 0; i--) {
+            const entry = history[i];
+            if (entry.role === 'assistant' && entry.content) {
+                const pageMatch = entry.content.match(/Showing\s+\d+[-–]\d+\s+of\s+(\d+)|(\d+)\s*-р хуудас/i);
+                if (pageMatch) {
+                    // Increment to next page
+                    currentPage = Math.floor(parseInt(pageMatch[1] || '1', 10) / RESULTS_PER_PAGE) + 1;
+                    break;
+                }
+            }
+        }
+    }
 
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
@@ -302,7 +340,8 @@ export default async function handler(req, res) {
 
     try {
         const allProducts = await fetchProductRows();
-        const matchedProducts = findMatchingProducts(searchQuery, allProducts, 50);
+        // Get ALL matching products (no limit)
+        const matchedProducts = findMatchingProducts(searchQuery, allProducts);
 
         if (!matchedProducts.length) {
             const askingForContact = isAskingForContact(message);
@@ -322,8 +361,23 @@ export default async function handler(req, res) {
             });
         }
 
-        const promptContext = formatProductsForPrompt(matchedProducts);
-        const systemInstruction = buildSystemInstruction(promptContext, matchedProducts.length, message);
+        // Calculate pagination
+        const totalMatches = matchedProducts.length;
+        const totalPages = Math.ceil(totalMatches / RESULTS_PER_PAGE);
+        const startIdx = (currentPage - 1) * RESULTS_PER_PAGE;
+        const endIdx = Math.min(startIdx + RESULTS_PER_PAGE, totalMatches);
+        const pageProducts = matchedProducts.slice(startIdx, endIdx);
+        
+        // For AI context, send up to MAX_RESULTS_IN_PROMPT products
+        const productsForPrompt = matchedProducts.slice(0, MAX_RESULTS_IN_PROMPT);
+        const promptContext = formatProductsForPrompt(productsForPrompt);
+        
+        // Build pagination info
+        const paginationInfo = totalMatches > RESULTS_PER_PAGE
+            ? `\n\n💡 Нийт ${totalMatches} бараа олдлоо. ${startIdx + 1}-${endIdx} харуулж байна. ${currentPage < totalPages ? '"More" эсвэл "Цааш" гэж бичвэл дараагийн хуудсыг харна.' : 'Бүх үр дүн харагдсан.'}`
+            : '';
+        
+        const systemInstruction = buildSystemInstruction(promptContext, matchedProducts.length, message, paginationInfo, startIdx + 1, endIdx, totalMatches);
         const payload = buildGeminiPayload(history, message, systemInstruction);
 
         const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
@@ -356,13 +410,17 @@ export default async function handler(req, res) {
             message,
             response: reply,
             matchCount: matchedProducts.length,
-            matchedProductIds: matchedProducts.map((product) => product.id || product.tokCode),
+            matchedProductIds: matchedProducts.slice(0, 20).map((product) => product.id || product.tokCode),
             latencyMs: Date.now() - startedAt
         });
 
         return res.status(200).json({
             reply,
-            matches: summarizeProductsForClient(matchedProducts),
+            matches: summarizeProductsForClient(pageProducts),
+            totalMatches,
+            currentPage,
+            totalPages,
+            hasMore: currentPage < totalPages,
             candidates: wrapCandidates(reply, data.candidates)
         });
     } catch (error) {
@@ -442,29 +500,37 @@ function buildGeminiPayload(history = [], message, systemInstruction) {
     };
 }
 
-function buildSystemInstruction(contextText, matchCount, userMessage = '') {
+function buildSystemInstruction(contextText, matchCount, userMessage = '', paginationInfo = '', startIdx = 1, endIdx = null, totalMatches = null) {
+    const resultsInfo = totalMatches && totalMatches > matchCount
+        ? `\n\n📊 Нийт ${totalMatches} бараа олдлоо. Та одоогоор ${startIdx}-${endIdx}-ийг харж байна.${paginationInfo}`
+        : '';
+        
     return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.\n\n` +
         `=== Компанийн мэдээлэл ===\n${CONTACT_BLOCK}\n\n` +
         `=== Хэрэглэгчийн хүсэлт ===\n${userMessage || 'Тодорхойгүй'}\n\n` +
-        `=== Олдсон бараа (${matchCount}) ===\n${contextText}\n\n` +
+        `=== Олдсон бараа (${matchCount}) ===\n${contextText}${resultsInfo}\n\n` +
         `=== ДҮРЭМ ===\n` +
         `1. Зөвхөн дээрх өгөгдөл дээр үндэслэн хариул; та мэдээлэл зохиож болохгүй.\n` +
         `2. Хэрэглэгч НӨАТ-гүй үнэ асуусан бол "Үнэ (НӨАТ-гүй)" утгыг, онцгойлон дурдаагүй бол "Үнэ (НӨАТ-тэй)" утгыг ашигла.\n` +
         `3. МӨНГӨН ДҮН ФОРМАТЛАХ: Бүх мөнгөн дүнг ЗААВАЛ мянгатын таслал (,) бүхий, төгрөгийн тэмдэгттэй (₮) бич. Жишээ нь: 88000 → 88,000₮, 150000 → 150,000₮\n` +
-        `4. Олон бараа олдсон бол хэрэглэгчид хамгийн тохирох барааг дараах МЭРГЭЖЛИЙН бүтэцтэйгээр жагсаа:\n\n` +
+        `4. Олон бараа олдсон бол хэрэглэгчид БҮГД барааг дараах МЭРГЭЖЛИЙН бүтэцтэйгээр жагсаа:\n\n` +
         `📦 Барааны мэдээлэл:\n` +
         `Нэр: <барааны нэр>\n` +
         `Код: <TOK код> | OEM: <OEM код>\n` +
         `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n\n` +
-        `5. Хэрэв хэрэглэгч ерөнхий асуулт асуусан бол (жишээ нь "Priusni bara", "Priusni ymr bara bnve"), БҮГД олдсон барааг жагсаа. Дэлгэрэнгүй асуухыг бүү хүс.\n` +
-        `6. Бараа олдоогүй бол соёлтойгоор мэдэгдэж, өөр нэр эсвэл загвараар хайхыг санал болго.\n` +
-        `7. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
-        `8. Хариултын төгсгөлд холбоо барих мэдээлэл БИЕЭР БИТГИЙ нэмээрэй. Зөвхөн хэрэглэгч холбоо барих утас, дугаар, захиалах эсвэл хаяг асуусан тохиолдолд л "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" мэдээллийг өг.\n` +
-        `9. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n` +
-        `10. TOK код, OEM кодыг зөвхөн мэдээлэл харуулахад ашигла. Хэрэглэгчээс код өгөхийг БҮҮ асуу - хэрэглэгчид код мэддэггүй.\n\n` +
+        `5. Хэрэв олон үр дүн байвал эхний хуудсыг харуулж, "Нийт X бараа олдлоо. 1-50 харуулж байна. 'More' эсвэл 'Цааш' гэж бичвэл дараагийн хуудсыг харна." гэж мэдээлэл өг.\n` +
+        `6. Хэрэв хэрэглэгч ерөнхий асуулт асуусан бол (жишээ нь "Priusni bara", "Priusni ymr bara bnve", "pruis 20", "pruis 20 bamper"), БҮГД олдсон барааг жагсаа. Дэлгэрэнгүй асуухыг бүү хүс.\n` +
+        `7. БҮҮ "олдсонгүй" гэж хэл хэрэв ойролцоо таарах бараа байвал. Ойролцоо таарсан барааг харуул.\n` +
+        `8. Хэрэв хэрэглэгчийн асуулт тийм ч тодорхойгүй бол (жишээ: "prius", "prius 20"), дараах санал болгоно:\n` +
+        `   - Олдсон барааны ангиллууд: бампер, фар, толь, хөдөлгүүр гэх мэт\n` +
+        `   - "Та ямар сэлбэг хайж байна вэ?" гэж асуугаарай\n` +
+        `9. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
+        `10. Хариултын төгсгөлд холбоо барих мэдээлэл БИЕЭР БИТГИЙ нэмээрэй. Зөвхөн хэрэглэгч холбоо барих утас, дугаар, захиалах эсвэл хаяг асуусан тохиолдолд л "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" мэдээллийг өг.\n` +
+        `11. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n` +
+        `12. TOK код, OEM кодыг зөвхөн мэдээлэл харуулахад ашигла. Хэрэглэгчээс код өгөхийг БҮҮ асуу - хэрэглэгчид код мэддэггүй.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
-        `- "priusni/приусын/pius/prius/p20/p30" → "Prius"\n` +
+        `- "priusni/приусын/pius/prius/pruis/prus/p20/p30" → "Prius"\n` +
         `- "bnu/bn uu/baiga yu/baigaa yu" → "байна уу"\n` +
         `- "motor/hodolguur" → "хөдөлгүүр"\n` +
         `- "oem/kod/code" → "OEM код"\n` +
@@ -528,16 +594,18 @@ function buildNoMatchResponse(query, shouldAddContact = false) {
     const availabilityQuestion = isAvailabilityQuestion(safeQuery);
     
     if (isConversational || availabilityQuestion || !safeQuery) {
-        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл машины загвараа бичнэ үү. Жишээ нь: "Prius бампер"', shouldAddContact);
+        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл машины загвараа бичнэ үү. Жишээ нь: "Prius бампер", "Harrier хөдөлгүүр"', shouldAddContact);
     }
     
     // More helpful message for product searches that don't match
     return ensureContactLine(
-        `Уучлаарай, "${safeQuery}" бараа одоогоор манай бүртгэлд олдсонгүй.\n\n` +
+        `Уучлаарай, "${safeQuery}" гэсэн хайлтад ойролцоо таарах бараа олдсонгүй.\n\n` +
         `💡 Зөвлөмж:\n` +
-        `• Машины загвараа нэмж бичиж үзээрэй (жишээ: "Prius бампер")\n` +
-        `• Өөр нэр эсвэл загвараар хайж үзээрэй\n` +
-        `• Утсаар 99997571, 88105143 руу залгаж лавлана уу`,
+        `• Машины загвар болон сэлбэг нэрийг нэмж бичиж үзээрэй (жишээ: "Prius 20 бампер")\n` +
+        `• Өөр нэр эсвэл загвараар хайж үзээрэй (жишээ: "Prius фар", "Harrier толь")\n` +
+        `• TOK эсвэл OEM код мэдэж байвал кодоор хайж үзээрэй\n` +
+        `• Утсаар холбогдоорой: 99997571, 88105143\n\n` +
+        `Танд ямар сэлбэг хэрэгтэй байна вэ?`,
         shouldAddContact
     );
 }
