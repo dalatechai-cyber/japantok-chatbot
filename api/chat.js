@@ -302,7 +302,7 @@ export default async function handler(req, res) {
 
     try {
         const allProducts = await fetchProductRows();
-        const matchedProducts = findMatchingProducts(searchQuery, allProducts, 10);
+        const matchedProducts = findMatchingProducts(searchQuery, allProducts, 50);
 
         if (!matchedProducts.length) {
             const askingForContact = isAskingForContact(message);
