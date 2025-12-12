@@ -59,7 +59,7 @@ function addMessage(text, sender) {
     
     const botIcon = sender === 'bot' 
         ? `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600">
-               <i class="fas fa-robot text-sm"></i>
+             <i class="fas fa-robot text-sm"></i>
            </div>` 
         : '';
     
