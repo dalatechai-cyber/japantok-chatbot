@@ -12,15 +12,17 @@ import { applyCors } from '../lib/cors.js';
 const GEMINI_URL =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-const CONTACT_LINE = 'Та захиалах бол манай утас руу залгаарай.';
+const CONTACT_LINE = '📞 Захиалах:';
 const CONTACT_NUMBERS = '99997571, 88105143';
+const CONTACT_FULL_TEXT = 'Та доорх утсаар холбогдоно уу:';
 const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр.\nЦагийн хуваарь: Даваа-Баасан 09:00-21:00 • Бямба/Ням амарна.`;
 
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
     { pattern: /(pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
-    { pattern: /(snu|sn u|sainuu)/gi, replace: 'сайн уу' },
+    { pattern: /(snu|sn u|snuu|sainuu)/gi, replace: 'сайн уу' },
     { pattern: /(bnu|bn uu|baigaa yu)/gi, replace: 'байна уу' },
+    { pattern: /(priusni bara baigayu)/gi, replace: 'prius байна уу' },
     { pattern: /(motor|hodolguur)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui)/gi, replace: 'нөат-гүй' }
@@ -90,7 +92,7 @@ export default async function handler(req, res) {
     const startedAt = Date.now();
 
     if (!cleanedQuery) {
-        const gentlePrompt = ensureContactLine('Сайн сайн байна уу! Би Japan Tok Mongolia-ийн AI туслах байна. Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа илүү тодорхой бичээрэй.');
+        const gentlePrompt = ensureContactLine('Сайн байна уу! 👋 Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ? Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа бичээрэй.');
         await logInteraction({
             requestId,
             message,
@@ -253,12 +255,16 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `=== ДҮРЭМ ===\n` +
         `1. Зөвхөн дээрх өгөгдөл дээр үндэслэн хариул; та мэдээлэл зохиож болохгүй.\n` +
         `2. Хэрэглэгч НӨАТ-гүй үнэ асуусан бол "Үнэ (НӨАТ-гүй)" утгыг, онцгойлон дурдаагүй бол "Үнэ (НӨАТ-тэй)" утгыг ашигла.\n` +
-        `3. Бүх мөнгөн дүнг мянгатын таслалтай, төгрөгийн тэмдэгттэй (₮) бич.\n` +
-        `4. Нэг эсвэл хоёр хамгийн тохирох барааг дараах бүтэцтэйгээр жагсаа:\n` +
-        `📦 Бараа: <нэр>\nКод: TOK <tok> | OEM <oem>\nҮнэ: <НӨАТ-тэй> / <НӨАТ-гүй>\nСтатус: Нөөц, хүргэлт гэх мэт\n` +
+        `3. МӨНГӨН ДҮН ФОРМАТЛАХ: Бүх мөнгөн дүнг ЗААВАЛ мянгатын таслал (,) бүхий, төгрөгийн тэмдэгттэй (₮) бич. Жишээ нь: 88000 → 88,000₮, 150000 → 150,000₮\n` +
+        `4. Нэг эсвэл хоёр хамгийн тохирох барааг дараах МЭРГЭЖЛИЙН бүтэцтэйгээр жагсаа:\n\n` +
+        `📦 Барааны мэдээлэл:\n` +
+        `Нэр: <барааны нэр>\n` +
+        `Код: <TOK код> | OEM: <OEM код>\n` +
+        `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n` +
+        `\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}\n\n` +
         `5. Бараа олдоогүй бол соёлтойгоор мэдэгдэж, дахин кодоо шалгаж бичихийг санал болго.\n` +
         `6. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
-        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} ${CONTACT_NUMBERS}." гэж бич.\n` +
+        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" гэж бич.\n` +
         `8. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
@@ -266,7 +272,7 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `- "bnu/bn uu/baigaa yu" → "байна уу"\n` +
         `- "motor/hodolguur" → "хөдөлгүүр"\n` +
         `- "oem/kod/code" → "OEM код"\n` +
-        `- "noatgui/no vat/padgui" → "НӨАТ-гүй"\n`;
+        `- "noatgui/no vat/padgui" → "нөат-гүй"\n`;
 }
 
 function extractReplyText(data) {
@@ -284,8 +290,14 @@ function buildFallbackResponse() {
 
 function buildNoMatchResponse(query) {
     const safeQuery = query?.trim() || '';
-    // Standardized Polite Error Message
-    return ensureContactLine(`Уучлаарай, таны хайсан ${safeQuery} кодтой бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`);
+    // Standardized Polite Error Message - don't assume it's a code if it's a conversational phrase
+    const isConversational = /сайн|байна|уу|танд|хэрэгтэй|юу|вэ/i.test(safeQuery);
+    
+    if (isConversational || !safeQuery) {
+        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл кодоо бичнэ үү.');
+    }
+    
+    return ensureContactLine(`Уучлаарай, таны хайсан "${safeQuery}" бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`);
 }
 
 function normalizeUserMessage(text = '') {
@@ -312,17 +324,17 @@ function normalizeUserMessage(text = '') {
 function ensureContactLine(text = '') {
     const trimmed = (text || '').trim();
     if (!trimmed) {
-        return `${CONTACT_LINE} ${CONTACT_NUMBERS}.`;
+        return `${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
     }
 
     const lower = trimmed.toLowerCase();
-    const hasLine = lower.includes(CONTACT_LINE.toLowerCase());
+    const hasLine = lower.includes(CONTACT_LINE.toLowerCase()) || lower.includes('захиалах');
     const hasNumbers = lower.includes('99997571') && lower.includes('88105143');
     if (hasLine || hasNumbers) {
         return trimmed;
     }
 
-    return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_NUMBERS}.`;
+    return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
 }
 
 function wrapCandidates(replyText = '', sourceCandidates) {
