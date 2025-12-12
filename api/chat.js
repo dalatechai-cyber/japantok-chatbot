@@ -63,6 +63,22 @@ const STOPWORDS = new Set([
     'bainuu'
 ]);
 
+// Keywords that indicate user wants contact information
+const CONTACT_KEYWORDS = [
+    'утас',           // phone
+    'дугаар',         // number
+    'холбоо',         // contact
+    'захиалах',       // order
+    'хаяг',           // address
+    'байршил',        // location
+    'цагийн хуваарь', // schedule
+    'contact',
+    'phone',
+    'number',
+    'call',
+    'reach'
+];
+
 export default async function handler(req, res) {
     const cors = applyCors(req, res, { methods: 'POST,OPTIONS' });
 
@@ -326,22 +342,7 @@ function normalizeUserMessage(text = '') {
 function isAskingForContact(message = '') {
     if (!message) return false;
     const lower = message.toLowerCase();
-    // Keywords that indicate user wants contact information
-    const contactKeywords = [
-        'утас',           // phone
-        'дугаар',         // number
-        'холбоо',         // contact
-        'захиалах',       // order
-        'хаяг',           // address
-        'байршил',        // location
-        'цагийн хуваарь', // schedule
-        'contact',
-        'phone',
-        'number',
-        'call',
-        'reach'
-    ];
-    return contactKeywords.some(keyword => lower.includes(keyword));
+    return CONTACT_KEYWORDS.some(keyword => lower.includes(keyword));
 }
 
 function ensureContactLine(text = '', shouldAddContact = false) {
