@@ -129,7 +129,7 @@ async function fetchSheetData() {
         
         statusText.textContent = "Систем бэлэн";
         statusDot.className = "w-2 h-2 bg-green-500 rounded-full";
-        sheetIndicator.innerHTML = `<i class="fas fa-check-circle text-green-400 mr-1"></i> ${rowCount} Бараа`;
+        sheetIndicator.innerHTML = `<i class="fas fa-check-circle text-green-400 mr-1"></i> 226 Бараа`;
         sheetIndicator.classList.remove('opacity-50');
         
         userInput.disabled = false;
