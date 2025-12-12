@@ -272,7 +272,7 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `- "bnu/bn uu/baigaa yu" → "байна уу"\n` +
         `- "motor/hodolguur" → "хөдөлгүүр"\n` +
         `- "oem/kod/code" → "OEM код"\n` +
-        `- "noatgui/no vat/padgui" → "НӨАТ-гүй"\n`;
+        `- "noatgui/no vat/padgui" → "нөат-гүй"\n`;
 }
 
 function extractReplyText(data) {
