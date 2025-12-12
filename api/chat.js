@@ -198,17 +198,20 @@ export default async function handler(req, res) {
     // Check for pagination request ("more", "дараагийнх", etc.)
     const requestingMore = /\b(more|дараагийнх|цааш|next)\b/i.test(message.toLowerCase());
     
-    // Extract page number from history or default to 1
+    // Simple pagination approach: if requesting more, try to get page from history
+    // Otherwise default to page 1
     let currentPage = 1;
     if (requestingMore && history.length > 0) {
-        // Try to find the last page number mentioned in assistant's responses
+        // Look for the most recent pagination info in assistant responses
         for (let i = history.length - 1; i >= 0; i--) {
             const entry = history[i];
             if (entry.role === 'assistant' && entry.content) {
-                const pageMatch = entry.content.match(/Showing\s+\d+[-–]\d+\s+of\s+(\d+)|(\d+)\s*-р хуудас/i);
-                if (pageMatch) {
-                    // Increment to next page
-                    currentPage = Math.floor(parseInt(pageMatch[1] || '1', 10) / RESULTS_PER_PAGE) + 1;
+                // Try to extract page info from patterns like "1-50 of 132" or "51-100"
+                const rangeMatch = entry.content.match(/(\d+)[-–](\d+)/);
+                if (rangeMatch) {
+                    const endIdx = parseInt(rangeMatch[2], 10);
+                    // Calculate next page based on end index
+                    currentPage = Math.floor(endIdx / RESULTS_PER_PAGE) + 1;
                     break;
                 }
             }
