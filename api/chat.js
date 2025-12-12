@@ -4,7 +4,8 @@ import {
     fetchProductRows,
     findMatchingProducts,
     formatProductsForPrompt,
-    summarizeProductsForClient
+    summarizeProductsForClient,
+    extractCategories
 } from '../lib/products.js';
 import { logInteraction } from '../lib/logger.js';
 import { applyCors } from '../lib/cors.js';
@@ -368,16 +369,35 @@ export default async function handler(req, res) {
         const endIdx = Math.min(startIdx + RESULTS_PER_PAGE, totalMatches);
         const pageProducts = matchedProducts.slice(startIdx, endIdx);
         
+        // Extract categories for broad queries
+        const categories = extractCategories(matchedProducts);
+        const isBroadQuery = categories.length > 1 && !hasSpecificPartKeyword(cleanedQuery);
+        
         // For AI context, send up to MAX_RESULTS_IN_PROMPT products
         const productsForPrompt = matchedProducts.slice(0, MAX_RESULTS_IN_PROMPT);
         const promptContext = formatProductsForPrompt(productsForPrompt);
+        
+        // Build category hint for broad queries
+        const categoryHint = isBroadQuery && categories.length > 0
+            ? `\n\n🔍 Олдсон барааны ангиллууд: ${categories.join(', ')}`
+            : '';
         
         // Build pagination info
         const paginationInfo = totalMatches > RESULTS_PER_PAGE
             ? `\n\n💡 Нийт ${totalMatches} бараа олдлоо. ${startIdx + 1}-${endIdx} харуулж байна. ${currentPage < totalPages ? '"More" эсвэл "Цааш" гэж бичвэл дараагийн хуудсыг харна.' : 'Бүх үр дүн харагдсан.'}`
             : '';
         
-        const systemInstruction = buildSystemInstruction(promptContext, matchedProducts.length, message, paginationInfo, startIdx + 1, endIdx, totalMatches);
+        const systemInstruction = buildSystemInstruction(
+            promptContext, 
+            matchedProducts.length, 
+            message, 
+            paginationInfo, 
+            startIdx + 1, 
+            endIdx, 
+            totalMatches, 
+            isBroadQuery,
+            categoryHint
+        );
         const payload = buildGeminiPayload(history, message, systemInstruction);
 
         const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
@@ -417,6 +437,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
             reply,
             matches: summarizeProductsForClient(pageProducts),
+            categories: isBroadQuery ? categories : [],
             totalMatches,
             currentPage,
             totalPages,
@@ -500,34 +521,59 @@ function buildGeminiPayload(history = [], message, systemInstruction) {
     };
 }
 
-function buildSystemInstruction(contextText, matchCount, userMessage = '', paginationInfo = '', startIdx = 1, endIdx = null, totalMatches = null) {
+/**
+ * Check if query contains specific part keywords (not just model name)
+ * @param {string} query - Search query
+ * @returns {boolean} True if contains specific part keywords
+ */
+function hasSpecificPartKeyword(query = '') {
+    if (!query) return false;
+    const lower = query.toLowerCase();
+    const partKeywords = [
+        'бампер', 'bumper', 'bamper',
+        'фар', 'headlight', 'headlamp',
+        'толь', 'mirror',
+        'хөдөлгүүр', 'мотор', 'motor', 'engine',
+        'хаалга', 'door',
+        'капот', 'hood',
+        'хавтан', 'panel', 'fender'
+    ];
+    return partKeywords.some(keyword => lower.includes(keyword));
+}
+
+function buildSystemInstruction(contextText, matchCount, userMessage = '', paginationInfo = '', startIdx = 1, endIdx = null, totalMatches = null, isBroadQuery = false, categoryHint = '') {
     const resultsInfo = totalMatches && totalMatches > matchCount
         ? `\n\n📊 Нийт ${totalMatches} бараа олдлоо. Та одоогоор ${startIdx}-${endIdx}-ийг харж байна.${paginationInfo}`
+        : '';
+    
+    const broadQueryGuidance = isBroadQuery
+        ? `\n\n⚠️ АНХААР: Хэрэглэгч ерөнхий асуулт асуусан байна (загвар л дурдсан, тодорхой сэлбэг заагаагүй). Та дараах ДАРААЛЛААР хариулна:\n` +
+          `1. Олдсон барааны ангиллуудыг жагсаана: ${categoryHint}\n` +
+          `2. "Та ямар сэлбэг хайж байна вэ?" гэж асууна\n` +
+          `3. Хэрэв их барааны тоо байвал 3-5 өөр ангиллын жишээ барааг харуулна\n` +
+          `4. Бүх жагсаалтыг БҮҮ харуулаарай - зөвхөн ангиллууд болон товч жишээ\n`
         : '';
         
     return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.\n\n` +
         `=== Компанийн мэдээлэл ===\n${CONTACT_BLOCK}\n\n` +
-        `=== Хэрэглэгчийн хүсэлт ===\n${userMessage || 'Тодорхойгүй'}\n\n` +
+        `=== Хэрэглэгчийн хүсэлт ===\n${userMessage || 'Тодорхойгүй'}${broadQueryGuidance}\n\n` +
         `=== Олдсон бараа (${matchCount}) ===\n${contextText}${resultsInfo}\n\n` +
         `=== ДҮРЭМ ===\n` +
         `1. Зөвхөн дээрх өгөгдөл дээр үндэслэн хариул; та мэдээлэл зохиож болохгүй.\n` +
         `2. Хэрэглэгч НӨАТ-гүй үнэ асуусан бол "Үнэ (НӨАТ-гүй)" утгыг, онцгойлон дурдаагүй бол "Үнэ (НӨАТ-тэй)" утгыг ашигла.\n` +
         `3. МӨНГӨН ДҮН ФОРМАТЛАХ: Бүх мөнгөн дүнг ЗААВАЛ мянгатын таслал (,) бүхий, төгрөгийн тэмдэгттэй (₮) бич. Жишээ нь: 88000 → 88,000₮, 150000 → 150,000₮\n` +
-        `4. Олон бараа олдсон бол хэрэглэгчид БҮГД барааг дараах МЭРГЭЖЛИЙН бүтэцтэйгээр жагсаа:\n\n` +
+        `4. ЕРӨНХИЙ АСУУЛТ (жишээ: "prius", "prius 20"): Олдсон барааны ангиллуудыг жагсааж, 2-3 жишээ бараа харуулна. "Та ямар сэлбэг хайж байна вэ?" гэж асуу.\n` +
+        `5. ТОДОРХОЙ АСУУЛТ (жишээ: "prius 20 bamper", "prius фар"): БҮГД олдсон барааг дараах МЭРГЭЖЛИЙН бүтэцтэйгээр жагсаа:\n\n` +
         `📦 Барааны мэдээлэл:\n` +
         `Нэр: <барааны нэр>\n` +
         `Код: <TOK код> | OEM: <OEM код>\n` +
         `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n\n` +
-        `5. Хэрэв олон үр дүн байвал эхний хуудсыг харуулж, "Нийт X бараа олдлоо. 1-50 харуулж байна. 'More' эсвэл 'Цааш' гэж бичвэл дараагийн хуудсыг харна." гэж мэдээлэл өг.\n` +
-        `6. Хэрэв хэрэглэгч ерөнхий асуулт асуусан бол (жишээ нь "Priusni bara", "Priusni ymr bara bnve", "pruis 20", "pruis 20 bamper"), БҮГД олдсон барааг жагсаа. Дэлгэрэнгүй асуухыг бүү хүс.\n` +
+        `6. Хэрэв олон үр дүн байвал эхний хуудсыг харуулж, "Нийт X бараа олдлоо. 1-50 харуулж байна. 'More' эсвэл 'Цааш' гэж бичвэл дараагийн хуудсыг харна." гэж мэдээлэл өг.\n` +
         `7. БҮҮ "олдсонгүй" гэж хэл хэрэв ойролцоо таарах бараа байвал. Ойролцоо таарсан барааг харуул.\n` +
-        `8. Хэрэв хэрэглэгчийн асуулт тийм ч тодорхойгүй бол (жишээ: "prius", "prius 20"), дараах санал болгоно:\n` +
-        `   - Олдсон барааны ангиллууд: бампер, фар, толь, хөдөлгүүр гэх мэт\n` +
-        `   - "Та ямар сэлбэг хайж байна вэ?" гэж асуугаарай\n` +
-        `9. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
-        `10. Хариултын төгсгөлд холбоо барих мэдээлэл БИЕЭР БИТГИЙ нэмээрэй. Зөвхөн хэрэглэгч холбоо барих утас, дугаар, захиалах эсвэл хаяг асуусан тохиолдолд л "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" мэдээллийг өг.\n` +
-        `11. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n` +
-        `12. TOK код, OEM кодыг зөвхөн мэдээлэл харуулахад ашигла. Хэрэглэгчээс код өгөхийг БҮҮ асуу - хэрэглэгчид код мэддэггүй.\n\n` +
+        `8. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
+        `9. Хариултын төгсгөлд холбоо барих мэдээлэл БИЕЭР БИТГИЙ нэмээрэй. Зөвхөн хэрэглэгч холбоо барих утас, дугаар, захиалах эсвэл хаяг асуусан тохиолдолд л "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" мэдээллийг өг.\n` +
+        `10. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n` +
+        `11. TOK код, OEM кодыг зөвхөн мэдээлэл харуулахад ашигла. Хэрэглэгчээс код өгөхийг БҮҮ асуу - хэрэглэгчид код мэддэггүй.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
         `- "priusni/приусын/pius/prius/pruis/prus/p20/p30" → "Prius"\n` +
