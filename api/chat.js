@@ -63,6 +63,22 @@ const STOPWORDS = new Set([
     'bainuu'
 ]);
 
+// Keywords that indicate user wants contact information
+const CONTACT_KEYWORDS = [
+    'утас',           // phone
+    'дугаар',         // number
+    'холбоо',         // contact
+    'захиалах',       // order
+    'хаяг',           // address
+    'байршил',        // location
+    'цагийн хуваарь', // schedule
+    'contact',
+    'phone',
+    'number',
+    'call',
+    'reach'
+];
+
 export default async function handler(req, res) {
     const cors = applyCors(req, res, { methods: 'POST,OPTIONS' });
 
@@ -92,7 +108,8 @@ export default async function handler(req, res) {
     const startedAt = Date.now();
 
     if (!cleanedQuery) {
-        const gentlePrompt = ensureContactLine('Сайн байна уу! 👋 Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ? Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа бичээрэй.');
+        const askingForContact = isAskingForContact(message);
+        const gentlePrompt = ensureContactLine('Сайн байна уу! 👋 Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ? Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа бичээрэй.', askingForContact);
         await logInteraction({
             requestId,
             message,
@@ -112,7 +129,8 @@ export default async function handler(req, res) {
         const matchedProducts = findMatchingProducts(searchQuery, allProducts, 6);
 
         if (!matchedProducts.length) {
-            const fallback = buildNoMatchResponse(message);
+            const askingForContact = isAskingForContact(message);
+            const fallback = buildNoMatchResponse(message, askingForContact);
             await logInteraction({
                 requestId,
                 message,
@@ -153,8 +171,9 @@ export default async function handler(req, res) {
             return res.status(response.status).json({ error: data.error?.message || 'AI Error' });
         }
 
-        const rawReply = extractReplyText(data) || buildFallbackResponse();
-        const reply = ensureContactLine(rawReply);
+        const askingForContact = isAskingForContact(message);
+        const rawReply = extractReplyText(data) || buildFallbackResponse(askingForContact);
+        const reply = ensureContactLine(rawReply, askingForContact);
 
         await logInteraction({
             requestId,
@@ -260,11 +279,10 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `📦 Барааны мэдээлэл:\n` +
         `Нэр: <барааны нэр>\n` +
         `Код: <TOK код> | OEM: <OEM код>\n` +
-        `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n` +
-        `\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}\n\n` +
+        `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n\n` +
         `5. Бараа олдоогүй бол соёлтойгоор мэдэгдэж, дахин кодоо шалгаж бичихийг санал болго.\n` +
         `6. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
-        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" гэж бич.\n` +
+        `7. Хариултын төгсгөлд холбоо барих мэдээлэл БИЕЭР БИТГИЙ нэмээрэй. Зөвхөн хэрэглэгч холбоо барих утас, дугаар, захиалах эсвэл хаяг асуусан тохиолдолд л "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" мэдээллийг өг.\n` +
         `8. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
@@ -284,20 +302,20 @@ function extractReplyText(data) {
         .trim();
 }
 
-function buildFallbackResponse() {
-    return ensureContactLine('Уучлаарай, түр зуурын алдаа гарлаа. Та дахин оролдоно уу.');
+function buildFallbackResponse(shouldAddContact = false) {
+    return ensureContactLine('Уучлаарай, түр зуурын алдаа гарлаа. Та дахин оролдоно уу.', shouldAddContact);
 }
 
-function buildNoMatchResponse(query) {
+function buildNoMatchResponse(query, shouldAddContact = false) {
     const safeQuery = query?.trim() || '';
     // Standardized Polite Error Message - don't assume it's a code if it's a conversational phrase
     const isConversational = /сайн|байна|уу|танд|хэрэгтэй|юу|вэ/i.test(safeQuery);
     
     if (isConversational || !safeQuery) {
-        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл кодоо бичнэ үү.');
+        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл кодоо бичнэ үү.', shouldAddContact);
     }
     
-    return ensureContactLine(`Уучлаарай, таны хайсан "${safeQuery}" бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`);
+    return ensureContactLine(`Уучлаарай, таны хайсан "${safeQuery}" бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`, shouldAddContact);
 }
 
 function normalizeUserMessage(text = '') {
@@ -321,20 +339,33 @@ function normalizeUserMessage(text = '') {
     return filtered.join(' ');
 }
 
-function ensureContactLine(text = '') {
+function isAskingForContact(message = '') {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    return CONTACT_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
+function ensureContactLine(text = '', shouldAddContact = false) {
     const trimmed = (text || '').trim();
     if (!trimmed) {
-        return `${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
+        return shouldAddContact ? `${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}` : '';
     }
 
     const lower = trimmed.toLowerCase();
     const hasLine = lower.includes(CONTACT_LINE.toLowerCase()) || lower.includes('захиалах');
     const hasNumbers = lower.includes('99997571') && lower.includes('88105143');
+    
+    // If contact info is already in the text, return as is
     if (hasLine || hasNumbers) {
         return trimmed;
     }
 
-    return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
+    // Only add contact info if explicitly requested
+    if (shouldAddContact) {
+        return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
+    }
+
+    return trimmed;
 }
 
 function wrapCandidates(replyText = '', sourceCandidates) {
