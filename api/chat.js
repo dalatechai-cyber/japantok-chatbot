@@ -158,7 +158,15 @@ export default async function handler(req, res) {
     const { message, history } = normalizeRequestBody(req.body);
     const normalizedQuery = normalizeUserMessage(message);
     const cleanedQuery = normalizedQuery?.trim();
-    const searchQuery = cleanedQuery || message;
+    const searchTokens = new Set();
+    [cleanedQuery, message].forEach((part) => {
+        (part || '')
+            .split(/\s+/)
+            .filter(Boolean)
+            .forEach((token) => searchTokens.add(token));
+    });
+    // Keep both normalized and raw tokens so we don't lose useful inputs (e.g., English spellings)
+    const searchQuery = Array.from(searchTokens).join(' ');
 
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
