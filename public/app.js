@@ -59,7 +59,7 @@ function addMessage(text, sender) {
     
     const botIcon = sender === 'bot' 
         ? `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 mt-1 flex-shrink-0 text-blue-600">
-            <i class="fas fa-robot text-sm"></i>
+               <i class="fas fa-robot text-sm"></i>
            </div>` 
         : '';
     
@@ -68,10 +68,12 @@ function addMessage(text, sender) {
         formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
     }
 
+    const messageClass = sender === 'user' 
+        ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
+        : 'bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none';
+    
     div.innerHTML = `${botIcon}
-        <div class="${sender === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-100'} 
-                     p-3 rounded-2xl ${sender === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} 
-                     shadow-sm max-w-[85%] text-sm">
+        <div class="${messageClass} p-3 shadow-sm max-w-[85%] text-sm">
             <p>${formattedText}</p>
         </div>`;
     
