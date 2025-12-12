@@ -12,6 +12,10 @@ import { applyCors } from '../lib/cors.js';
 const GEMINI_URL =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// Configuration constants
+const MAX_GREETING_LENGTH = 15; // Maximum characters for a message to be considered a simple greeting
+const MIN_TOKEN_LENGTH = 4; // Minimum token length to keep during normalization
+
 const CONTACT_LINE = '📞 Захиалах:';
 const CONTACT_NUMBERS = '99997571, 88105143';
 const CONTACT_FULL_TEXT = 'Та доорх утсаар холбогдоно уу:';
@@ -536,9 +540,9 @@ function normalizeUserMessage(text = '') {
         .split(/\s+/)
         .filter(Boolean)
         .filter((token) => {
-            // Keep the token if it's not in stopwords OR if it's part of a compound search
+            // Keep the token if it's not in stopwords OR if it's longer than MIN_TOKEN_LENGTH
             // This prevents over-filtering
-            return !STOPWORDS.has(token) || token.length >= 4;
+            return !STOPWORDS.has(token) || token.length >= MIN_TOKEN_LENGTH;
         });
 
     return filtered.join(' ');
@@ -572,7 +576,7 @@ function isGreeting(message = '') {
     }
     
     // Check if message is very short (likely greeting)
-    if (lower.length <= 15) {
+    if (lower.length <= MAX_GREETING_LENGTH) {
         return GREETING_KEYWORDS.some(keyword => lower.includes(keyword));
     }
     
@@ -586,8 +590,12 @@ function hasProductIntent(message = '') {
     // Check for product-related keywords
     const hasProductKeyword = PRODUCT_KEYWORDS.some(keyword => lower.includes(keyword));
     
-    // Check if message looks like a code (alphanumeric with numbers)
-    const looksLikeCode = /[a-z0-9]{3,}/i.test(message) && /\d/.test(message);
+    // Check if message looks like a product code:
+    // - Must have at least one letter AND one number
+    // - Must be at least 4 characters (typical product codes are longer)
+    // - Optionally contains hyphens or underscores (common in product codes)
+    const productCodePattern = /\b[a-z0-9]{4,}[-_]?[a-z0-9]*\b/i;
+    const looksLikeCode = productCodePattern.test(message) && /[a-z]/i.test(message) && /\d/.test(message);
     
     // Check for product search patterns like "X байна уу" or "X байгаа юу"
     const productSearchPattern = /(\w+)\s+(байна\s*уу|байгаа\s*юу)/i;
