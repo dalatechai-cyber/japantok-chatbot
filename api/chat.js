@@ -12,6 +12,10 @@ import { applyCors } from '../lib/cors.js';
 const GEMINI_URL =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// Configuration constants
+const MAX_GREETING_LENGTH = 15; // Maximum characters for a message to be considered a simple greeting
+const MIN_TOKEN_LENGTH = 4; // Minimum token length to keep during normalization
+
 const CONTACT_LINE = '📞 Захиалах:';
 const CONTACT_NUMBERS = '99997571, 88105143';
 const CONTACT_FULL_TEXT = 'Та доорх утсаар холбогдоно уу:';
@@ -20,12 +24,14 @@ const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
     { pattern: /(pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
-    { pattern: /(snu|sn u|snuu|sainuu)/gi, replace: 'сайн уу' },
-    { pattern: /(bnu|bn uu|baigaa yu)/gi, replace: 'байна уу' },
-    { pattern: /(priusni bara baigayu)/gi, replace: 'prius байна уу' },
-    { pattern: /(motor|hodolguur)/gi, replace: 'хөдөлгүүр' },
+    { pattern: /(snu|sn u|snuu|sainuu|sain uu|sain)/gi, replace: 'сайн уу' },
+    { pattern: /(bnu|bn uu|baigaa yu|bainuu)/gi, replace: 'байна уу' },
+    { pattern: /(priusni bara baigayu|prius baigaa yu)/gi, replace: 'prius байна уу' },
+    { pattern: /(motor|hodolguur|motoor)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
-    { pattern: /(noatgui|no vat|padgui)/gi, replace: 'нөат-гүй' }
+    { pattern: /(noatgui|no vat|padgui|novat)/gi, replace: 'нөат-гүй' },
+    { pattern: /(utasni dugar|utas dugar|utasny dugar)/gi, replace: 'утасны дугаар' },
+    { pattern: /(hedve|hedvee|хэдвэ)/gi, replace: 'хэд вэ' }
 ];
 
 const STOPWORD_PHRASES = [
@@ -76,7 +82,56 @@ const CONTACT_KEYWORDS = [
     'phone',
     'number',
     'call',
-    'reach'
+    'reach',
+    'dugar',          // slang for number
+    'utas',           // slang for phone
+    'hedve'           // how much/what is
+];
+
+// Keywords that indicate greetings or general conversation
+const GREETING_KEYWORDS = [
+    'сайн',
+    'байна',
+    'сайн байна',
+    'сайн уу',
+    'snu',
+    'sainuu',
+    'sain uu',
+    'hello',
+    'hi',
+    'танилцуулга',
+    'юу вэ',
+    'юу хийдэг',
+    'таны нэр',
+    'хэн',
+    'яаж'
+];
+
+// Keywords that indicate product search intent
+const PRODUCT_KEYWORDS = [
+    'бампер',
+    'prius',
+    'хөдөлгүүр',
+    'мотор',
+    'сэлбэг',
+    'код',
+    'oem',
+    'tok',
+    'загвар',
+    'машин',
+    'үнэ',
+    'барааны',
+    'бараа',
+    'нөөц',
+    'хайна',
+    'хэрэгтэй',
+    'авах',
+    'худалдаж',
+    'bumper',
+    'motor',
+    'engine',
+    'part',
+    'spare'
 ];
 
 export default async function handler(req, res) {
@@ -107,8 +162,108 @@ export default async function handler(req, res) {
     const requestId = randomUUID?.() ?? String(Date.now());
     const startedAt = Date.now();
 
+    // Check intent before doing anything
+    const askingForContact = isAskingForContact(message);
+    const isGreetingMessage = isGreeting(message);
+    const hasProductSearchIntent = hasProductIntent(message);
+
+    // Handle greetings - respond conversationally without product search
+    if (isGreetingMessage && !hasProductSearchIntent) {
+        const greetingResponse = 'Сайн байна уу! 👋 Japan Tok Mongolia цахим туслахад тавтай морил. Би танд автомашины сэлбэг хэрэгсэл хайхад туслах болно. Танд ямар сэлбэг хэрэгтэй байна вэ? Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа бичээрэй.';
+        await logInteraction({
+            requestId,
+            message,
+            response: greetingResponse,
+            matchCount: 0,
+            latencyMs: Date.now() - startedAt
+        });
+        return res.status(200).json({
+            reply: greetingResponse,
+            matches: [],
+            candidates: wrapCandidates(greetingResponse)
+        });
+    }
+
+    // Handle contact info requests - use Gemini for natural response
+    if (askingForContact && !hasProductSearchIntent) {
+        const contactSystemInstruction = buildContactSystemInstruction(message);
+        const payload = buildGeminiPayload(history, message, contactSystemInstruction);
+
+        try {
+            const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            const contactReply = extractReplyText(data) || buildContactResponse();
+            
+            await logInteraction({
+                requestId,
+                message,
+                response: contactReply,
+                matchCount: 0,
+                latencyMs: Date.now() - startedAt
+            });
+
+            return res.status(200).json({
+                reply: contactReply,
+                matches: [],
+                candidates: wrapCandidates(contactReply, data.candidates)
+            });
+        } catch (error) {
+            // Fallback to static contact response
+            const contactReply = buildContactResponse();
+            await logInteraction({
+                requestId,
+                message,
+                response: contactReply,
+                matchCount: 0,
+                latencyMs: Date.now() - startedAt
+            });
+            return res.status(200).json({
+                reply: contactReply,
+                matches: [],
+                candidates: wrapCandidates(contactReply)
+            });
+        }
+    }
+
+    // If no clear product intent, use Gemini for conversation
+    if (!hasProductSearchIntent && cleanedQuery) {
+        const conversationInstruction = buildConversationSystemInstruction(message);
+        const payload = buildGeminiPayload(history, message, conversationInstruction);
+
+        try {
+            const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            const conversationReply = extractReplyText(data) || 'Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл кодоо бичнэ үү.';
+            
+            await logInteraction({
+                requestId,
+                message,
+                response: conversationReply,
+                matchCount: 0,
+                latencyMs: Date.now() - startedAt
+            });
+
+            return res.status(200).json({
+                reply: conversationReply,
+                matches: [],
+                candidates: wrapCandidates(conversationReply, data.candidates)
+            });
+        } catch (error) {
+            // Continue to product search as fallback
+        }
+    }
+
     if (!cleanedQuery) {
-        const askingForContact = isAskingForContact(message);
         const gentlePrompt = ensureContactLine('Сайн байна уу! 👋 Japan Tok Mongolia цахим туслахад тавтай морил. Танд ямар сэлбэг хэрэгтэй байна вэ? Та хайж буй сэлбэгийн нэр, код эсвэл машины загвараа бичээрэй.', askingForContact);
         await logInteraction({
             requestId,
@@ -293,6 +448,42 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `- "noatgui/no vat/padgui" → "нөат-гүй"\n`;
 }
 
+function buildContactSystemInstruction(userMessage = '') {
+    return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.\n\n` +
+        `=== Компанийн мэдээлэл ===\n${CONTACT_BLOCK}\n\n` +
+        `=== Хэрэглэгчийн хүсэлт ===\n${userMessage}\n\n` +
+        `=== ДҮРЭМ ===\n` +
+        `1. Хэрэглэгч холбоо барих мэдээлэл асууж байна.\n` +
+        `2. Найрсаг хэв маягаар, компанийн утас, хаяг, цагийн хуваарийг хүснэгт бус, бичвэр хэлбэрээр өг.\n` +
+        `3. Утасны дугаарыг АЛБАН ЁСООР 99997571, 88105143 гэж бич.\n` +
+        `4. Хаягийг бүрэн бичиж өг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр.\n` +
+        `5. Цагийн хуваарь: Даваа-Баасан 09:00-21:00, Бямба/Ням амарна.\n` +
+        `6. Мэргэжлийн боловч найрсаг хэв маяг хадгал. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуул.\n` +
+        `7. Дугаарыг бичихдээ ТУСАД НЬ бич: 99997571, 88105143\n`;
+}
+
+function buildConversationSystemInstruction(userMessage = '') {
+    return `Та бол "Japan Tok Mongolia" компанийн албан ёсны хиймэл оюун ухаант туслах.\n\n` +
+        `=== Компанийн мэдээлэл ===\n${CONTACT_BLOCK}\n\n` +
+        `=== Хэрэглэгчийн хүсэлт ===\n${userMessage}\n\n` +
+        `=== ДҮРЭМ ===\n` +
+        `1. Та автомашины сэлбэг хэрэгсэл худалдаалах компанийн туслах.\n` +
+        `2. Хэрэглэгчтэй найрсаг харилцаа үүсгэ, асуултад тодорхой хариул.\n` +
+        `3. Хэрэв хэрэглэгч сэлбэг хайж байгаа бол нэр, код, загвар асуу.\n` +
+        `4. Хэрэв хэрэглэгч компанийн тухай асуувал мэдээллийг өг.\n` +
+        `5. Хэрэв хэрэглэгч холбоо барих утас, хаяг асуувал дээрх компанийн мэдээллийг ашиглан хариул.\n` +
+        `6. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n` +
+        `7. Монгол хэл дээр бүрэн хариулна.\n`;
+}
+
+function buildContactResponse() {
+    return `Сайн байна уу! 👋 Манай холбоо барих мэдээлэл:\n\n` +
+        `📞 Утас: 99997571, 88105143\n\n` +
+        `📍 Хаяг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр\n\n` +
+        `🕒 Цагийн хуваарь: Даваа-Баасан 09:00-21:00, Бямба/Ням амарна\n\n` +
+        `Та ямар нэгэн сэлбэг хайж байвал надад хэлээрэй!`;
+}
+
 function extractReplyText(data) {
     const candidate = data.candidates?.[0];
     if (!candidate?.content?.parts) return '';
@@ -308,33 +499,51 @@ function buildFallbackResponse(shouldAddContact = false) {
 
 function buildNoMatchResponse(query, shouldAddContact = false) {
     const safeQuery = query?.trim() || '';
-    // Standardized Polite Error Message - don't assume it's a code if it's a conversational phrase
-    const isConversational = /сайн|байна|уу|танд|хэрэгтэй|юу|вэ/i.test(safeQuery);
+    
+    // Check if it's a greeting or conversational phrase
+    const isConversational = /сайн|байна|уу|танд|хэрэгтэй|юу|вэ|hello|hi/i.test(safeQuery);
     
     if (isConversational || !safeQuery) {
-        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл кодоо бичнэ үү.', shouldAddContact);
+        return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр, машины загвар эсвэл кодоо бичнэ үү. Жишээ нь: "Prius бампер" эсвэл "TOK код"', shouldAddContact);
     }
     
-    return ensureContactLine(`Уучлаарай, таны хайсан "${safeQuery}" бараа манай бүртгэлд олдсонгүй. Та кодоо шалгаад дахин бичнэ үү.`, shouldAddContact);
+    // More helpful message for product searches that don't match
+    return ensureContactLine(
+        `Уучлаарай, "${safeQuery}" бараа одоогоор манай бүртгэлд олдсонгүй.\n\n` +
+        `💡 Зөвлөмж:\n` +
+        `• Машины загвараа нэмж бичиж үзээрэй (жишээ: "Prius бампер")\n` +
+        `• TOK эсвэл OEM кодоо шалгаад дахин оролдоорой\n` +
+        `• Утсаар 99997571, 88105143 руу залгаж лавлана уу`,
+        shouldAddContact
+    );
 }
 
 function normalizeUserMessage(text = '') {
     if (!text) return '';
 
     let normalized = text.toLowerCase();
+    // Apply slang rules to normalize common misspellings
     normalized = SLANG_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replace), normalized);
 
+    // Only remove stopword phrases if they appear alone or at the start
     STOPWORD_PHRASES.forEach((phrase) => {
-        const regex = new RegExp(phrase, 'g');
+        // Remove phrase only if it's the entire message or at the start
+        const regex = new RegExp(`^${phrase}\\s*|\\s+${phrase}$`, 'gi');
         normalized = normalized.replace(regex, ' ');
     });
 
+    // Remove punctuation but keep alphanumeric
     normalized = normalized.replace(/[?.,!]/g, ' ');
 
+    // Only filter out common stopwords, but be less aggressive
     const filtered = normalized
         .split(/\s+/)
         .filter(Boolean)
-        .filter((token) => !STOPWORDS.has(token));
+        .filter((token) => {
+            // Keep the token if it's not in stopwords OR if it's longer than MIN_TOKEN_LENGTH
+            // This prevents over-filtering
+            return !STOPWORDS.has(token) || token.length >= MIN_TOKEN_LENGTH;
+        });
 
     return filtered.join(' ');
 }
@@ -343,6 +552,56 @@ function isAskingForContact(message = '') {
     if (!message) return false;
     const lower = message.toLowerCase();
     return CONTACT_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
+function isGreeting(message = '') {
+    if (!message) return false;
+    const lower = message.toLowerCase().trim();
+    
+    // Check for explicit greeting phrases first
+    const greetingPhrases = [
+        'сайн байна уу',
+        'сайн уу',
+        'байна уу',
+        'snu',
+        'sainuu',
+        'sain uu',
+        'hello',
+        'hi'
+    ];
+    
+    // If message matches a greeting phrase exactly or closely, it's a greeting
+    if (greetingPhrases.some(phrase => lower === phrase || lower.startsWith(phrase))) {
+        return true;
+    }
+    
+    // Check if message is very short (likely greeting)
+    if (lower.length <= MAX_GREETING_LENGTH) {
+        return GREETING_KEYWORDS.some(keyword => lower.includes(keyword));
+    }
+    
+    return false;
+}
+
+function hasProductIntent(message = '') {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    
+    // Check for product-related keywords
+    const hasProductKeyword = PRODUCT_KEYWORDS.some(keyword => lower.includes(keyword));
+    
+    // Check if message looks like a product code:
+    // - Must have at least one letter AND one number
+    // - Must be at least 4 characters (typical product codes are longer)
+    // - Optionally contains hyphens or underscores (common in product codes)
+    const productCodePattern = /\b[a-z0-9]{4,}[-_]?[a-z0-9]*\b/i;
+    const looksLikeCode = productCodePattern.test(message) && /[a-z]/i.test(message) && /\d/.test(message);
+    
+    // Check for product search patterns like "X байна уу" or "X байгаа юу"
+    const productSearchPattern = /(\w+)\s+(байна\s*уу|байгаа\s*юу)/i;
+    const hasProductSearchPattern = productSearchPattern.test(message);
+    
+    return hasProductKeyword || looksLikeCode || hasProductSearchPattern;
 }
 
 function ensureContactLine(text = '', shouldAddContact = false) {
