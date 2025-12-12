@@ -23,10 +23,11 @@ const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам
 
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
-    { pattern: /(pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
+    // Match priusni, priusiin, приус variants and normalize to "prius"
+    { pattern: /(priusni|priusiin|priusnii|приусын|приусний|приус|pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
     { pattern: /(snu|sn u|snuu|sainuu|sain uu|sain)/gi, replace: 'сайн уу' },
-    { pattern: /(bnu|bn uu|baigaa yu|bainuu)/gi, replace: 'байна уу' },
-    { pattern: /(priusni bara baigayu|prius baigaa yu)/gi, replace: 'prius байна уу' },
+    // Match various forms of "baiga yu", "baigaa yu", etc. with flexible spacing
+    { pattern: /(bnu|bn\s*uu|baiga\s*yu|baigaa\s*yu|bainuu|baigayu)/gi, replace: 'байна уу' },
     { pattern: /(motor|hodolguur|motoor)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui|novat)/gi, replace: 'нөат-гүй' },
@@ -66,7 +67,11 @@ const STOPWORDS = new Set([
     'bn',
     'bna',
     'baina',
-    'bainuu'
+    'bainuu',
+    'bara',    // product/goods - generic term
+    'baiga',   // being/having - part of question forms
+    'yu',      // question particle
+    'бараа'    // Mongolian for product/goods
 ]);
 
 // Keywords that indicate user wants contact information
@@ -441,8 +446,8 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `8. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
-        `- "pius/prius/p20/p30" → "Prius"\n` +
-        `- "bnu/bn uu/baigaa yu" → "байна уу"\n` +
+        `- "priusni/приусын/pius/prius/p20/p30" → "Prius"\n` +
+        `- "bnu/bn uu/baiga yu/baigaa yu" → "байна уу"\n` +
         `- "motor/hodolguur" → "хөдөлгүүр"\n` +
         `- "oem/kod/code" → "OEM код"\n` +
         `- "noatgui/no vat/padgui" → "нөат-гүй"\n`;
