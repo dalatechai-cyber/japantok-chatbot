@@ -14,13 +14,15 @@ const GEMINI_URL =
 
 const CONTACT_LINE = '📞 Захиалах:';
 const CONTACT_NUMBERS = '99997571, 88105143';
+const CONTACT_FULL_TEXT = 'Та доорх утсаар холбогдоно уу:';
 const CONTACT_BLOCK = `Утас: ${CONTACT_NUMBERS}\nХаяг: Нарны зам дагуу Энхтайвны гүүрний баруун доод талд 200&570 авто сервисийн байр.\nЦагийн хуваарь: Даваа-Баасан 09:00-21:00 • Бямба/Ням амарна.`;
 
 const SLANG_RULES = [
     { pattern: /(gpr|guper|gvr|bamper)/gi, replace: 'бампер' },
     { pattern: /(pius|prius|pruis|prus|p20|p30)/gi, replace: 'prius' },
     { pattern: /(snu|sn u|snuu|sainuu)/gi, replace: 'сайн уу' },
-    { pattern: /(bnu|bn uu|baigaa yu|priusni bara baigayu)/gi, replace: 'байна уу' },
+    { pattern: /(bnu|bn uu|baigaa yu)/gi, replace: 'байна уу' },
+    { pattern: /(priusni bara baigayu)/gi, replace: 'prius байна уу' },
     { pattern: /(motor|hodolguur)/gi, replace: 'хөдөлгүүр' },
     { pattern: /(oem|kod|code)/gi, replace: 'oem код' },
     { pattern: /(noatgui|no vat|padgui)/gi, replace: 'нөат-гүй' }
@@ -259,10 +261,10 @@ function buildSystemInstruction(contextText, matchCount, userMessage = '') {
         `Нэр: <барааны нэр>\n` +
         `Код: <TOK код> | OEM: <OEM код>\n` +
         `Үнэ: <НӨАТ-тэй үнэ> (НӨАТ орсон)\n` +
-        `\n${CONTACT_LINE} Та доорх утсаар холбогдоно уу: ${CONTACT_NUMBERS}\n\n` +
+        `\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}\n\n` +
         `5. Бараа олдоогүй бол соёлтойгоор мэдэгдэж, дахин кодоо шалгаж бичихийг санал болго.\n` +
         `6. Холбоо барих мэдээлэл, цагийн хуваарь асуувал компанийн мэдээлэл хэсгийн өгөгдлийг ашигла.\n` +
-        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} Та доорх утсаар холбогдоно уу: ${CONTACT_NUMBERS}" гэж бич.\n` +
+        `7. Хариултын төгсгөлд заавал "${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}" гэж бич.\n` +
         `8. Өөрийгөө "Japan Tok Mongolia"-ийн туслах гэж танилцуулж, найрсаг боловч мэргэжлийн хэв шинж хадгал.\n\n` +
         `=== Бичлэгийн засвар (Slang) ===\n` +
         `- "gpr/guper/gvr/bamper" → "бампер"\n` +
@@ -322,7 +324,7 @@ function normalizeUserMessage(text = '') {
 function ensureContactLine(text = '') {
     const trimmed = (text || '').trim();
     if (!trimmed) {
-        return `${CONTACT_LINE} Та доорх утсаар холбогдоно уу: ${CONTACT_NUMBERS}`;
+        return `${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
     }
 
     const lower = trimmed.toLowerCase();
@@ -332,7 +334,7 @@ function ensureContactLine(text = '') {
         return trimmed;
     }
 
-    return `${trimmed}\n\n${CONTACT_LINE} Та доорх утсаар холбогдоно уу: ${CONTACT_NUMBERS}`;
+    return `${trimmed}\n\n${CONTACT_LINE} ${CONTACT_FULL_TEXT} ${CONTACT_NUMBERS}`;
 }
 
 function wrapCandidates(replyText = '', sourceCandidates) {
