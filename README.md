@@ -12,6 +12,11 @@ Professional AI-powered customer support chatbot for auto parts, integrated with
 - 🔒 **Secure Backend** - API keys protected, CORS enabled
 - ⚡ **Fast Performance** - Caching and optimized queries
 - 🌐 **Easy Embedding** - Widget for any website
+- 🔍 **Fuzzy Search** - Handles typos and spelling variations (e.g., "pruis" → "prius", "bamper" → "bumper")
+- 📄 **Pagination Support** - Browse through large result sets with "more" command
+- 🎯 **Smart Intent Detection** - Distinguishes between broad model queries and specific part searches
+- 📦 **Category Grouping** - Automatically suggests product categories for broad queries
+- ♾️ **Unlimited Recall** - Shows all matching products, not just top results
 
 ## Quick Start
 
@@ -103,7 +108,7 @@ Chat with the AI assistant.
 **Request:**
 ```json
 {
-  "message": "Prius-ийн бампер хайна уу",
+  "message": "pruis 20 bamper",
   "history": []
 }
 ```
@@ -111,9 +116,23 @@ Chat with the AI assistant.
 **Response:**
 ```json
 {
-  "reply": "Та захиалах бол манай утас руу залгаарай...",
+  "reply": "Here are Prius 20 bumper options...",
   "matches": [...],
+  "categories": ["Бампер (Bumper)", "Фар (Headlight)"],
+  "totalMatches": 132,
+  "currentPage": 1,
+  "totalPages": 3,
+  "hasMore": true,
   "candidates": [...]
+}
+```
+
+**Pagination:**
+To get more results, send "more" or "цааш" in the message:
+```json
+{
+  "message": "more",
+  "history": [...]
 }
 ```
 
@@ -150,6 +169,47 @@ Fetch product data from Google Sheets.
    - Нөөц (Stock)
 3. Publish: File → Share → Publish to web → CSV
 4. Copy the CSV URL to your `.env` file
+
+## Search Capabilities
+
+### Fuzzy Matching
+The chatbot uses advanced fuzzy search with Levenshtein distance to handle typos and variations:
+- **Typos**: "pruis" → "prius", "bamper" → "bumper"
+- **Variations**: "priusni", "приус", "p20" all match "Prius"
+- **Edit Distance**: Allows up to 2 character differences for tokens ≥3 characters
+
+### Query Types
+
+#### 1. Broad Model Queries
+When asking about a model without specifying parts:
+```
+User: "prius 20"
+Bot: Shows category overview (bumpers, headlights, mirrors, etc.) 
+     and asks "What part do you need?"
+```
+
+#### 2. Specific Part Queries  
+When asking about specific parts:
+```
+User: "pruis 20 bamper" (with typos)
+Bot: Shows ALL matching bumpers for Prius 20
+     "Found 15 bumpers. Showing 1-15. Which side (front/rear)?"
+```
+
+#### 3. Pagination
+For large result sets:
+```
+Bot: "Found 132 items. Showing 1-50. Say 'more' for next page."
+User: "more"
+Bot: Shows items 51-100
+```
+
+### Supported Synonyms
+- **Bumper**: бампер, bamper, gpr, guper, gvr
+- **Engine**: хөдөлгүүр, мотор, motor, hodolguur
+- **Mirror**: толь, зөөгч толь, мирор
+- **Headlight**: фар, headlamp, lamp
+- **Hood**: капот, hood panel
 
 ## Security
 
