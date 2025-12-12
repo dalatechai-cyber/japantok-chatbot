@@ -158,8 +158,10 @@ export default async function handler(req, res) {
     const { message, history } = normalizeRequestBody(req.body);
     const normalizedQuery = normalizeUserMessage(message);
     const cleanedQuery = normalizedQuery?.trim();
+    const shouldCombineQueries =
+        cleanedQuery && cleanedQuery.toLowerCase() !== (message || '').toLowerCase();
     // Keep both normalized and raw text so we don't lose useful tokens (e.g., English spellings)
-    const searchQuery = cleanedQuery ? `${cleanedQuery} ${message}` : message;
+    const searchQuery = shouldCombineQueries ? `${cleanedQuery} ${message}` : message;
 
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
