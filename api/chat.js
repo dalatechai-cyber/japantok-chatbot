@@ -46,7 +46,10 @@ const SLANG_RULES = [
     { pattern: /(hedve|hedvee|хэдвэ)/gi, replace: 'хэд вэ' },
     { pattern: /(harrier|harier|harer)/gi, replace: 'harrier' },
     { pattern: /(фар|headlight|headlamp|lamp)/gi, replace: 'фар' },
-    { pattern: /(толь|mirror|mirr|зөөгч толь)/gi, replace: 'толь' }
+    { pattern: /(толь|mirror|mirr|зөөгч толь)/gi, replace: 'толь' },
+    // Brake-related slang
+    { pattern: /(toormos|toorm|тормоз|тоорм)/gi, replace: 'тоормос' },
+    { pattern: /(kolodok|kolodka|колодка)/gi, replace: 'колодок' }
 ];
 
 const STOPWORD_PHRASES = [
@@ -85,7 +88,16 @@ const STOPWORDS = new Set([
     'bara',    // product/goods - generic term
     'baiga',   // being/having - part of question forms
     'yu',      // question particle
-    'бараа'    // Mongolian for product/goods
+    'бараа',   // Mongolian for product/goods
+    // Possessive and grammatical markers
+    'iin',     // of/possessive
+    'nii',     // possessive variant
+    'yn',      // possessive short form
+    'ni',      // possessive/topical marker
+    'гэсэн',   // "called/said"
+    'хэрэгтэй', // "need" - too generic for search
+    'heregteii', // "need" slang
+    'gsen'     // "called" slang
 ]);
 
 // Keywords that indicate user wants contact information
@@ -163,7 +175,33 @@ const PRODUCT_KEYWORDS = [
     'капот',
     'hood',
     'хавтан',
-    'panel'
+    'panel',
+    // Brake-related keywords
+    'тоормос',
+    'тормоз',
+    'brake',
+    'колодок',
+    'колодка',
+    'диск',
+    'disc',
+    'disk',
+    'rotor',
+    'pad',
+    'pads',
+    // Additional parts
+    'амортизатор',
+    'suspension',
+    'shock',
+    'жолоодлого',
+    'steering',
+    'filter',
+    'шүүлтүүр',
+    'фильтр',
+    'тос',
+    'oil',
+    'цонх',
+    'windshield',
+    'glass'
 ];
 
 export default async function handler(req, res) {
@@ -539,7 +577,13 @@ function hasSpecificPartKeyword(query = '') {
         'хөдөлгүүр', 'мотор', 'motor', 'engine',
         'хаалга', 'door',
         'капот', 'hood',
-        'хавтан', 'panel', 'fender'
+        'хавтан', 'panel', 'fender',
+        'тоормос', 'тормоз', 'brake',
+        'колодок', 'колодка', 'pad', 'pads',
+        'диск', 'disc', 'disk', 'rotor',
+        'амортизатор', 'suspension', 'shock',
+        'жолоодлого', 'steering',
+        'шүүлтүүр', 'filter', 'фильтр'
     ];
     return partKeywords.some(keyword => lower.includes(keyword));
 }
