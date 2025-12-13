@@ -5,7 +5,9 @@ import {
     findMatchingProducts,
     formatProductsForPrompt,
     summarizeProductsForClient,
-    extractCategories
+    extractCategories,
+    extractModelNames,
+    findProductsByModel
 } from '../lib/products.js';
 import { logInteraction } from '../lib/logger.js';
 import { applyCors } from '../lib/cors.js';
@@ -387,18 +389,33 @@ export default async function handler(req, res) {
 
         if (!matchedProducts.length) {
             const askingForContact = isAskingForContact(message);
-            const fallback = buildNoMatchResponse(message, askingForContact);
+            
+            // Fallback: Try to extract model names and suggest related parts
+            const detectedModels = extractModelNames(searchQuery);
+            let fallbackProducts = [];
+            let fallbackModelName = '';
+            
+            if (detectedModels.length > 0) {
+                // Try to find products for the detected model
+                fallbackModelName = detectedModels[0];
+                fallbackProducts = findProductsByModel(fallbackModelName, allProducts, 10);
+            }
+            
+            const fallback = buildNoMatchResponse(message, askingForContact, fallbackProducts, fallbackModelName);
             await logInteraction({
                 requestId,
                 message,
                 response: fallback,
                 matchCount: 0,
+                fallbackCount: fallbackProducts.length,
                 latencyMs: Date.now() - startedAt
             });
 
             return res.status(200).json({
                 reply: fallback,
-                matches: [],
+                matches: fallbackProducts.length > 0 ? summarizeProductsForClient(fallbackProducts) : [],
+                totalMatches: fallbackProducts.length,
+                isFallback: true,
                 candidates: wrapCandidates(fallback)
             });
         }
@@ -679,7 +696,7 @@ function buildFallbackResponse(shouldAddContact = false) {
     return ensureContactLine('Уучлаарай, түр зуурын алдаа гарлаа. Та дахин оролдоно уу.', shouldAddContact);
 }
 
-function buildNoMatchResponse(query, shouldAddContact = false) {
+function buildNoMatchResponse(query, shouldAddContact = false, fallbackProducts = [], modelName = '') {
     const safeQuery = query?.trim() || '';
     
     // Check if it's a greeting or conversational phrase
@@ -688,6 +705,24 @@ function buildNoMatchResponse(query, shouldAddContact = false) {
     
     if (isConversational || availabilityQuestion || !safeQuery) {
         return ensureContactLine('Би танд туслахад бэлэн байна. Та хайж буй сэлбэгийн нэр эсвэл машины загвараа бичнэ үү. Жишээ нь: "Prius бампер", "Harrier хөдөлгүүр"', shouldAddContact);
+    }
+    
+    // If we have fallback products (model-based suggestions), show them
+    if (fallbackProducts.length > 0 && modelName) {
+        const categories = extractCategories(fallbackProducts);
+        const categoryList = categories.length > 0 ? categories.slice(0, 5).join(', ') : 'Янз бүрийн сэлбэг';
+        
+        return ensureContactLine(
+            `Уучлаарай, "${safeQuery}" гэсэн тодорхой бараа олдсонгүй.\n\n` +
+            `🔍 Гэвч "${modelName}" загварын ${fallbackProducts.length} сэлбэг байна:\n` +
+            `${categoryList}\n\n` +
+            `💡 Та илүү тодорхой хайлт хийж үзээрэй:\n` +
+            `• "${modelName} бампер"\n` +
+            `• "${modelName} фар"\n` +
+            `• "${modelName} толь"\n\n` +
+            `Эсвэл утсаар холбогдоорой: 99997571, 88105143`,
+            shouldAddContact
+        );
     }
     
     // More helpful message for product searches that don't match
