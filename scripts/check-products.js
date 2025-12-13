@@ -50,7 +50,8 @@ async function checkProducts() {
             const missing = [];
             
             REQUIRED_FIELDS.forEach(field => {
-                if (!product[field] || product[field].trim() === '') {
+                const value = product[field];
+                if (!value || String(value).trim() === '') {
                     missing.push(field);
                 }
             });

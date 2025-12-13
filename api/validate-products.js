@@ -13,14 +13,22 @@ export default async function handler(req, res) {
     try {
         const products = await fetchProductRows({ force: true });
         
-        // Count products with complete information
-        const completeProducts = products.filter(p => 
-            p.name && p.tokCode && p.oemCode && p.model
-        );
+        // Single pass to categorize products
+        const completeProducts = [];
+        const incompleteProducts = [];
         
-        const incompleteProducts = products.filter(p => 
-            !p.name || !p.tokCode || !p.oemCode || !p.model
-        );
+        products.forEach(p => {
+            const hasAllFields = ['name', 'tokCode', 'oemCode', 'model'].every(field => {
+                const value = p[field];
+                return value && String(value).trim() !== '';
+            });
+            
+            if (hasAllFields) {
+                completeProducts.push(p);
+            } else {
+                incompleteProducts.push(p);
+            }
+        });
 
         const response = {
             status: 'success',

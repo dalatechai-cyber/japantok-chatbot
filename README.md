@@ -281,7 +281,6 @@ This will:
 - ⚠️ Report any missing or incomplete products
 
 📖 For detailed usage, troubleshooting, and integration examples, see [docs/PRODUCT_VALIDATION.md](docs/PRODUCT_VALIDATION.md).
-- ⚠️ Report any missing or incomplete products
 
 See [scripts/README.md](scripts/README.md) for more details.
 
