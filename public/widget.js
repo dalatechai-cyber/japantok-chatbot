@@ -371,11 +371,18 @@
         loadChatHistory();
         
         // Check if we have saved messages, if so, clear the default welcome message
-        const savedMessages = localStorage.getItem('japantok-chat-messages');
-        if (savedMessages && savedMessages !== '[]') {
-            // Clear the default welcome message
-            messagesDiv.innerHTML = '';
-            loadChatMessages();
+        try {
+            const savedMessages = localStorage.getItem('japantok-chat-messages');
+            if (savedMessages) {
+                const parsedMessages = JSON.parse(savedMessages);
+                if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+                    // Clear the default welcome message
+                    messagesDiv.innerHTML = '';
+                    loadChatMessages();
+                }
+            }
+        } catch (e) {
+            console.error('Failed to check saved messages:', e);
         }
 
         // Toggle chat
