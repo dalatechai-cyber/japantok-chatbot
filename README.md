@@ -146,6 +146,30 @@ Fetch product data from Google Sheets.
 }
 ```
 
+### GET `/api/validate-products`
+Check that all 226 products are present and complete.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "productCount": {
+    "total": 226,
+    "expected": 226,
+    "difference": 0,
+    "complete": 226,
+    "incomplete": 0
+  },
+  "validation": {
+    "countMatches": true,
+    "allComplete": true,
+    "overall": true
+  },
+  "message": "✅ All 226 products are present and complete!",
+  "timestamp": "2025-12-13T07:00:00.000Z"
+}
+```
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -228,6 +252,37 @@ git commit -m "Your update message"
 git push origin main
 # Vercel automatically redeploys
 ```
+
+## Product Validation
+
+To verify that all 226 products are properly loaded from Google Sheets:
+
+**Option 1: Using the validation script (locally)**
+
+```bash
+# Check product count and completeness
+npm run check:products
+```
+
+**Option 2: Using the API endpoint (remotely)**
+
+```bash
+# Check via HTTP request
+curl https://your-project.vercel.app/api/validate-products
+
+# Or open in browser
+https://your-project.vercel.app/api/validate-products
+```
+
+This will:
+- ✅ Verify exactly 226 products are loaded
+- ✅ Check all products have required fields (name, TOK code, OEM code, model)
+- ✅ Show sample products and summary statistics
+- ⚠️ Report any missing or incomplete products
+
+📖 For detailed usage, troubleshooting, and integration examples, see [docs/PRODUCT_VALIDATION.md](docs/PRODUCT_VALIDATION.md).
+
+See [scripts/README.md](scripts/README.md) for more details.
 
 ## Support & Contact
 
