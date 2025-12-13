@@ -313,6 +313,71 @@
         let chatHistory = [];
         let isLoading = false;
 
+        // Load chat history from localStorage
+        function loadChatHistory() {
+            try {
+                const saved = localStorage.getItem('japantok-chat-history');
+                if (saved) {
+                    chatHistory = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Failed to load chat history:', e);
+            }
+        }
+
+        // Save chat history to localStorage
+        function saveChatHistory() {
+            try {
+                localStorage.setItem('japantok-chat-history', JSON.stringify(chatHistory));
+            } catch (e) {
+                console.error('Failed to save chat history:', e);
+            }
+        }
+
+        // Load chat messages from localStorage
+        function loadChatMessages() {
+            try {
+                const saved = localStorage.getItem('japantok-chat-messages');
+                if (saved) {
+                    const messages = JSON.parse(saved);
+                    messages.forEach(msg => {
+                        addMessage(msg.text, msg.sender, false);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load chat messages:', e);
+            }
+        }
+
+        // Save chat messages to localStorage
+        function saveChatMessages() {
+            try {
+                const messages = Array.from(messagesDiv.querySelectorAll('.japantok-widget-message:not(#japantok-typing)'))
+                    .map(msgDiv => {
+                        const isUser = msgDiv.classList.contains('user');
+                        const content = msgDiv.querySelector('.japantok-widget-message-content');
+                        return {
+                            text: isUser ? content.textContent : content.innerHTML,
+                            sender: isUser ? 'user' : 'bot'
+                        };
+                    });
+                localStorage.setItem('japantok-chat-messages', JSON.stringify(messages));
+            } catch (e) {
+                console.error('Failed to save chat messages:', e);
+            }
+        }
+
+        // Initialize chat history and messages
+        loadChatHistory();
+        
+        // Check if we have saved messages, if so, clear the default welcome message
+        const savedMessages = localStorage.getItem('japantok-chat-messages');
+        if (savedMessages && savedMessages !== '[]') {
+            // Clear the default welcome message
+            messagesDiv.innerHTML = '';
+            loadChatMessages();
+        }
+
         // Toggle chat
         function toggleChat() {
             chatContainer.classList.toggle('open');
@@ -328,7 +393,7 @@
 
 
         // Add message to chat
-        function addMessage(text, sender) {
+        function addMessage(text, sender, shouldSave = true) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `japantok-widget-message ${sender}`;
             const content = document.createElement('div');
@@ -344,6 +409,11 @@
             msgDiv.appendChild(content);
             messagesDiv.appendChild(msgDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Save messages to localStorage
+            if (shouldSave) {
+                saveChatMessages();
+            }
         }
 
         // Add typing indicator
@@ -430,6 +500,9 @@
                 if (chatHistory.length > 10) {
                     chatHistory = chatHistory.slice(-10);
                 }
+                
+                // Save chat history to localStorage
+                saveChatHistory();
             } catch (error) {
                 console.error('Error:', error);
                 addMessage(error.message || 'Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.', 'bot');
