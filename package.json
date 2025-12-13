@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vercel dev",
     "build:css": "tailwindcss -i ./src/input.css -o ./public/styles.css --minify",
-    "check": "node --check api/chat.js && node --check api/sheet.js && node --check public/app.js && node --check public/widget.js && echo '✅ All files validated'"
+    "check": "node --check api/chat.js && node --check api/sheet.js && node --check public/app.js && node --check public/widget.js && echo '✅ All files validated'",
+    "check:products": "node scripts/check-products.js"
   },
   "dependencies": {
     "node-fetch": "^3.0.0"

@@ -229,6 +229,23 @@ git push origin main
 # Vercel automatically redeploys
 ```
 
+## Product Validation
+
+To verify that all 226 products are properly loaded from Google Sheets:
+
+```bash
+# Check product count and completeness
+npm run check:products
+```
+
+This will:
+- ✅ Verify exactly 226 products are loaded
+- ✅ Check all products have required fields (name, TOK code, OEM code, model)
+- ✅ Show sample products and summary statistics
+- ⚠️ Report any missing or incomplete products
+
+See [scripts/README.md](scripts/README.md) for more details.
+
 ## Support & Contact
 
 For issues or questions:
