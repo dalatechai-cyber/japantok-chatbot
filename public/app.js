@@ -48,11 +48,13 @@ function saveChatMessages() {
             .map(msgDiv => {
                 const isUser = msgDiv.classList.contains('justify-end');
                 const content = msgDiv.querySelector('p');
+                if (!content) return null; // Skip if content not found
                 return {
                     text: isUser ? content.textContent : content.innerHTML,
                     sender: isUser ? 'user' : 'bot'
                 };
-            });
+            })
+            .filter(msg => msg !== null); // Remove null entries
         localStorage.setItem('japantok-chat-messages', JSON.stringify(messages));
     } catch (e) {
         console.error('Failed to save chat messages:', e);
