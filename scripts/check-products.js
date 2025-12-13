@@ -17,6 +17,20 @@ import { fetchProductRows } from '../lib/products.js';
 
 const EXPECTED_PRODUCT_COUNT = 226;
 const REQUIRED_FIELDS = ['name', 'tokCode', 'oemCode', 'model'];
+const MAX_DISPLAY_LENGTH = 60;
+
+/**
+ * Truncate a string to a maximum length and add ellipsis
+ * @param {string} text - Text to truncate
+ * @param {number} maxLength - Maximum length
+ * @returns {string} Truncated text
+ */
+function truncateString(text = '', maxLength = MAX_DISPLAY_LENGTH) {
+    if (!text || text.length <= maxLength) {
+        return text || 'N/A';
+    }
+    return text.substring(0, maxLength) + '...';
+}
 
 async function checkProducts() {
     console.log('🔍 Checking product details from Google Sheets...\n');
@@ -98,7 +112,7 @@ async function checkProducts() {
         // Sample products
         console.log('📦 Sample Products (first 5):');
         products.slice(0, 5).forEach((product, index) => {
-            console.log(`\n${index + 1}. Name: ${product.name?.substring(0, 60) || 'N/A'}${product.name?.length > 60 ? '...' : ''}`);
+            console.log(`\n${index + 1}. Name: ${truncateString(product.name)}`);
             console.log(`   TOK Code: ${product.tokCode || 'N/A'}`);
             console.log(`   OEM Code: ${product.oemCode || 'N/A'}`);
             console.log(`   Model: ${product.model || 'N/A'}`);

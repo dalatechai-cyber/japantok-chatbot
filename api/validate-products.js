@@ -45,7 +45,7 @@ export default async function handler(req, res) {
                 overall: products.length === EXPECTED_PRODUCT_COUNT && incompleteProducts.length === 0
             },
             message: products.length === EXPECTED_PRODUCT_COUNT && incompleteProducts.length === 0
-                ? '✅ All 226 products are present and complete!'
+                ? `✅ All ${EXPECTED_PRODUCT_COUNT} products are present and complete!`
                 : products.length === EXPECTED_PRODUCT_COUNT
                     ? `⚠️ Product count is correct (${products.length}), but ${incompleteProducts.length} products have missing fields`
                     : `❌ Expected ${EXPECTED_PRODUCT_COUNT} products, but found ${products.length}`,
