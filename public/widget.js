@@ -300,6 +300,12 @@
 
     // Initialize widget
     function init() {
+        // Prevent multiple initialization
+        if (document.getElementById('japantok-container')) {
+            console.warn('Japan Tok widget already initialized');
+            return;
+        }
+        
         // Inject widget markup once
         document.body.insertAdjacentHTML('beforeend', html);
 
