@@ -387,18 +387,46 @@
             console.error('Failed to check saved messages:', e);
         }
 
+        // Load widget open state from localStorage
+        function loadWidgetState() {
+            try {
+                const isOpen = localStorage.getItem('japantok-widget-open');
+                if (isOpen === 'true') {
+                    chatContainer.classList.add('open');
+                    overlay.classList.add('open');
+                    toggleBtn.classList.add('open');
+                }
+            } catch (e) {
+                console.error('Failed to load widget state:', e);
+            }
+        }
+
+        // Save widget open state to localStorage
+        function saveWidgetState(isOpen) {
+            try {
+                localStorage.setItem('japantok-widget-open', isOpen ? 'true' : 'false');
+            } catch (e) {
+                console.error('Failed to save widget state:', e);
+            }
+        }
+
         // Toggle chat
         function toggleChat() {
             chatContainer.classList.toggle('open');
             overlay.classList.toggle('open');
             toggleBtn.classList.toggle('open');
-            if (chatContainer.classList.contains('open')) {
+            const isOpen = chatContainer.classList.contains('open');
+            saveWidgetState(isOpen);
+            if (isOpen) {
                 input.focus();
             }
         }
 
         toggleBtn.addEventListener('click', toggleChat);
         overlay.addEventListener('click', toggleChat);
+
+        // Restore widget state on page load
+        loadWidgetState();
 
 
         // Add message to chat
