@@ -6,6 +6,12 @@
     const currentScript = document.currentScript;
     const scriptOrigin = currentScript ? new URL(currentScript.src).origin : window.location.origin;
 
+    // Prevent multiple initialization
+    if (window.__JAPANTOK_WIDGET_INITIALIZED__) {
+        console.warn('Japan Tok widget already initialized');
+        return;
+    }
+
     // Configuration
     const WIDGET_CONFIG = {
         apiUrl: scriptOrigin,
@@ -300,12 +306,6 @@
 
     // Initialize widget
     function init() {
-        // Prevent multiple initialization
-        if (document.getElementById('japantok-container')) {
-            console.warn('Japan Tok widget already initialized');
-            return;
-        }
-        
         // Inject widget markup once
         document.body.insertAdjacentHTML('beforeend', html);
 
@@ -570,6 +570,9 @@
                 sendMessage();
             }
         });
+        
+        // Mark widget as initialized
+        window.__JAPANTOK_WIDGET_INITIALIZED__ = true;
     }
 
     // Initialize when DOM is ready
