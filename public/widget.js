@@ -392,9 +392,13 @@
             try {
                 const isOpen = localStorage.getItem('japantok-widget-open');
                 if (isOpen === 'true') {
-                    chatContainer.classList.add('open');
-                    overlay.classList.add('open');
-                    toggleBtn.classList.add('open');
+                    if (chatContainer && overlay && toggleBtn) {
+                        chatContainer.classList.add('open');
+                        overlay.classList.add('open');
+                        toggleBtn.classList.add('open');
+                    } else {
+                        console.error('Widget elements not found when loading state');
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load widget state:', e);
