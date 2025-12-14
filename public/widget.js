@@ -6,6 +6,12 @@
     const currentScript = document.currentScript;
     const scriptOrigin = currentScript ? new URL(currentScript.src).origin : window.location.origin;
 
+    // Prevent multiple initialization
+    if (window.__JAPANTOK_WIDGET_INITIALIZED__) {
+        console.warn('Japan Tok widget already initialized');
+        return;
+    }
+
     // Configuration
     const WIDGET_CONFIG = {
         apiUrl: scriptOrigin,
@@ -392,9 +398,17 @@
             try {
                 const isOpen = localStorage.getItem('japantok-widget-open');
                 if (isOpen === 'true') {
-                    chatContainer.classList.add('open');
-                    overlay.classList.add('open');
-                    toggleBtn.classList.add('open');
+                    if (chatContainer && overlay && toggleBtn) {
+                        chatContainer.classList.add('open');
+                        overlay.classList.add('open');
+                        toggleBtn.classList.add('open');
+                    } else {
+                        const missing = [];
+                        if (!chatContainer) missing.push('chatContainer');
+                        if (!overlay) missing.push('overlay');
+                        if (!toggleBtn) missing.push('toggleBtn');
+                        console.error('Widget elements not found when loading state. Missing:', missing.join(', '));
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load widget state:', e);
@@ -560,6 +574,9 @@
                 sendMessage();
             }
         });
+        
+        // Mark widget as initialized
+        window.__JAPANTOK_WIDGET_INITIALIZED__ = true;
     }
 
     // Initialize when DOM is ready
