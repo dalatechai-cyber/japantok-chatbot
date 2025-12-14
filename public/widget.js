@@ -403,7 +403,11 @@
                         overlay.classList.add('open');
                         toggleBtn.classList.add('open');
                     } else {
-                        console.error('Widget elements not found when loading state');
+                        const missing = [];
+                        if (!chatContainer) missing.push('chatContainer');
+                        if (!overlay) missing.push('overlay');
+                        if (!toggleBtn) missing.push('toggleBtn');
+                        console.error('Widget elements not found when loading state. Missing:', missing.join(', '));
                     }
                 }
             } catch (e) {
